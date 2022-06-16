@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "APOD wallpapers": {
+      "commandName": "Project",
+      "commandLineArgs": "--skip-wallpaper"
+    }
+  }
+}
