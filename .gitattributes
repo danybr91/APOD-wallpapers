@@ -1,0 +1,7 @@
+# Para todos los tipos de fichero, detecta si es tipo texto y normaliza final de línea:
+*	text=auto
+# Tipos de archivo que deben tener el final de línea de Windows
+*.sln	text eol=crlf
+*.csproj	text eol=crlf
+# Tipos de archivo deben tener el de final de línea de UNIX
+*.sh	text eol=lf
