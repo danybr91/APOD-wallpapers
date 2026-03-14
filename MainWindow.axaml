@@ -1,0 +1,109 @@
+﻿<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="APOD_wallpapers.MainWindow"
+        Title="APOD Wallpapers"
+        MinWidth="640" MinHeight="480"
+        Width="900" Height="650"
+        RequestedThemeVariant="Dark">
+
+    <Window.Styles>
+        <Style Selector="Button">
+            <Setter Property="Background" Value="#0078D4"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="#0067B8"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="20,10"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="MinHeight" Value="36"/>
+        </Style>
+        <Style Selector="Button:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#106EBE"/>
+        </Style>
+        <Style Selector="Button:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="#005A9E"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="*, Auto">
+
+        <!-- Imagen + overlay apilados -->
+        <Grid Grid.Row="0">
+
+            <Image Name="PreviewImage"
+                   Stretch="Uniform"
+                   Margin="8"/>
+
+            <!-- Overlay de carga -->
+            <Border Name="LoadingOverlay"
+                    Background="#CC1E1E1E"
+                    IsVisible="True">
+                <StackPanel HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Spacing="16">
+                    <ProgressBar IsIndeterminate="True"
+                                 Width="200"
+                                 Height="4"
+                                 Foreground="#0078D4"
+                                 Background="#444444"/>
+                    <TextBlock Text="Cargando imagen..."
+                               Foreground="#AAAAAA"
+                               FontSize="13"
+                               HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Border>
+
+        </Grid>
+
+        <!-- Barra inferior -->
+        <Border Grid.Row="1"
+                BorderThickness="0,1,0,0"
+                BorderBrush="#44FFFFFF"
+                Background="#2D2D2D"
+                Padding="12,10">
+            <Grid ColumnDefinitions="*, Auto">
+
+                <TextBlock Grid.Column="0"
+                           x:Name="StatusText"
+                           Text="Listo"
+                           VerticalAlignment="Center"
+                           Foreground="#AAAAAA"
+                           FontSize="12"/>
+
+                <StackPanel Grid.Column="1"
+                            Orientation="Horizontal"
+                            Spacing="10"
+                            VerticalAlignment="Center">
+                    <!-- Botón Descargar -->
+                    <Button x:Name="DownloadButton" Click="DownloadButton_Click" IsEnabled="false">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Viewbox Width="16" Height="16" VerticalAlignment="Center">
+                                <Path Fill="White"
+                                      Data="M8 2a.75.75 0 0 1 .75.75v6.69l2.22-2.22a.75.75 0 1 1 1.06 1.06l-3.5 3.5a.75.75 0 0 1-1.06 0l-3.5-3.5a.75.75 0 0 1 1.06-1.06l2.22 2.22V2.75A.75.75 0 0 1 8 2ZM2 14.25a.75.75 0 0 1 .75-.75h10.5a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1-.75-.75Z"
+                                      Width="16" Height="16"/>
+                            </Viewbox>
+                            <TextBlock Text="Descargar" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Botón Establecer fondo -->
+                    <Button x:Name="SetWallpaperButton" Click="SetWallpaperButton_Click">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Viewbox Width="16" Height="16" VerticalAlignment="Center" IsEnabled="false">
+                                <Path Fill="White"
+                                      Data="M2 4.5A2.5 2.5 0 0 1 4.5 2h7A2.5 2.5 0 0 1 14 4.5v7a2.5 2.5 0 0 1-2.5 2.5h-7A2.5 2.5 0 0 1 2 11.5v-7Zm2.5-1a1 1 0 0 0-1 1v4.09l2.3-1.84a1 1 0 0 1 1.3.05l1.86 1.86 1.14-1.14a1 1 0 0 1 1.44.04L13 9.28V4.5a1 1 0 0 0-1-1h-7ZM13 11.5v-.53l-2.77-2.77-.96.96a1 1 0 0 1-1.44-.04L5.97 7.26 3.5 9.2V11.5a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1Zm-7.25-6a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5Z"
+                                      Width="16" Height="16"/>
+                            </Viewbox>
+                            <TextBlock Text="Establecer como fondo" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+
+            </Grid>
+        </Border>
+
+    </Grid>
+</Window>
