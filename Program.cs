@@ -16,6 +16,8 @@ namespace APOD_wallpapers
         public static string APOD_URL_BASE = "https://apod.nasa.gov/apod/";
         public static string APOD_MAIN_PAGE = "astropix.html";
         public static string IMAGE_URL_SEARCH_XPATH = "//center//a[starts-with(@href,'image')]";
+        public static string IMAGE_TITLE_SEARCH_XPATH = "//center[2]";
+        public static string IMAGE_DESCRIPTION_SEARCH_XPATH = "//body/p[1]";
         public static string DEFAULT_DOWNLOAD_DIR = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
         
         private static bool DEBUG = false;
@@ -180,8 +182,8 @@ namespace APOD_wallpapers
                         if (IsValidFilePath(file_path))
                         {
                             WriteInfo($"Descargando imagen del día en '{file_path}'");
-                            using var imageStream = await DownloadImage(client, image_url);
-                            SaveMemoryStreamToFile(imageStream, file_path);
+                            using var image = await DownloadImage(client, image_url);
+                            image.Save(file_path);
                             if (CheckFileAccess(file_path, FileMode.Open, FileAccess.Read) && IsImageFile(file_path))
                             {
                                 if (set_wallpaper)
@@ -288,6 +290,34 @@ namespace APOD_wallpapers
             }
         }
 
+        public static HtmlNode GetImageTitleFromAPOD(HtmlDocument page_document)
+        {
+            WriteDebug($"Comando XPATH: '{IMAGE_TITLE_SEARCH_XPATH}'");
+            var node = page_document.DocumentNode.SelectSingleNode(IMAGE_TITLE_SEARCH_XPATH);
+            if (node != null)
+            {
+                return node;
+            }
+            else
+            {
+                throw new NodeNotFoundException("Fallo al extraer el título de la imagen de hoy en el sitio web.");
+            }
+        }
+        
+        public static HtmlNode GetImageDescriptionFromAPOD(HtmlDocument page_document)
+        {
+            WriteDebug($"Comando XPATH: '{IMAGE_DESCRIPTION_SEARCH_XPATH}'");
+            var node = page_document.DocumentNode.SelectSingleNode(IMAGE_DESCRIPTION_SEARCH_XPATH);
+            if (node != null)
+            {
+                return node;
+            }
+            else
+            {
+                throw new NodeNotFoundException("Fallo al extraer la descripción de la imagen de hoy en el sitio web.");
+            }
+        }
+
         public static string GetImagefileNameFromURL(string image_url)
         {
             string[] tokens = image_url.ToString().Split("/");
@@ -306,35 +336,18 @@ namespace APOD_wallpapers
             return file_name.Substring(file_name.LastIndexOf('.'));
         }
 
-        public static async Task<MemoryStream> DownloadImage(HttpClient client, string url, CancellationToken token = default, int timeout = 30000)
+        public static async Task<Bitmap> DownloadImage(HttpClient client, string url, CancellationToken token = default, int timeout = 30000)
         {
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(token);
             cts.CancelAfter(timeout);
-            
-            var response = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cts.Token);
+
+            var response = await client.GetAsync(url, HttpCompletionOption.ResponseContentRead, cts.Token);
             response.EnsureSuccessStatusCode();
 
-            var memoryStream = new MemoryStream();
-            try
-            {
-                using var stream = await response.Content.ReadAsStreamAsync(cts.Token);
-                await stream.CopyToAsync(memoryStream, cts.Token);
-                memoryStream.Position = 0;
-                return memoryStream;
-            }
-            catch
-            {
-                memoryStream.Dispose();
-                throw;
-            }
-        }
+            var bytes = await response.Content.ReadAsByteArrayAsync(cts.Token);
+            using var memoryStream = new MemoryStream(bytes, writable: false);
 
-        public static void SaveMemoryStreamToFile(MemoryStream memoryStream, string filePath)
-        {
-            using (var bitmap = new Bitmap(memoryStream))
-            {
-                bitmap.Save(filePath);
-            }
+            return new Bitmap(memoryStream);
         }
 
         public static void SetWallpaper(string image_path)

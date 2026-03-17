@@ -3,7 +3,7 @@
         x:Class="APOD_wallpapers.MainWindow"
         Title="APOD Wallpapers"
         MinWidth="640" MinHeight="480"
-        Width="900" Height="650"
+        Width="840" Height="740"
         RequestedThemeVariant="Dark">
 
     <Window.Styles>
@@ -28,14 +28,13 @@
         </Style>
     </Window.Styles>
 
-    <Grid RowDefinitions="*, Auto">
+    <Grid RowDefinitions="*, Auto, Auto">
 
         <!-- Imagen + overlay apilados -->
         <Grid Grid.Row="0">
 
             <Image Name="PreviewImage"
-                   Stretch="Uniform"
-                   Margin="8"/>
+                   Stretch="Uniform"/>
 
             <!-- Overlay de carga -->
             <Border Name="LoadingOverlay"
@@ -55,11 +54,32 @@
                                HorizontalAlignment="Center"/>
                 </StackPanel>
             </Border>
-
         </Grid>
 
+        <!-- Descripción de la imagen -->
+    
+        
+        <ScrollViewer Grid.Row="1"
+                      Background="#CC1E1E1E"
+                      MaxHeight="200"
+                      VerticalScrollBarVisibility="Auto">
+            <Grid RowDefinitions="Auto, Auto, Auto">
+                <TextBlock  x:Name="TitleText" Grid.Row="0"
+                            Padding="8" 
+                            TextWrapping="Wrap" 
+                            TextAlignment="Center"/>
+                <TextBlock x:Name="InfoText" Grid.Row="1" 
+                           Padding="8"  
+                           TextWrapping="Wrap"/>
+                <!-- Botón Abrir APOD -->
+                <HyperlinkButton Grid.Row="2" NavigateUri="https://apod.nasa.gov"
+                                 Content="Más información" />
+                
+            </Grid>
+        </ScrollViewer>
+        
         <!-- Barra inferior -->
-        <Border Grid.Row="1"
+        <Border Grid.Row="2"
                 BorderThickness="0,1,0,0"
                 BorderBrush="#44FFFFFF"
                 Background="#2D2D2D"

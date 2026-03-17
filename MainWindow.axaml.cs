@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Net;
 using System.Net.Http;
+using System.Text;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
@@ -31,6 +33,8 @@ namespace APOD_wallpapers
             StatusText = this.FindControl<TextBlock>("StatusText");
             PreviewImage = this.FindControl<Image>("PreviewImage");
             LoadingOverlay = this.FindControl<Border>("LoadingOverlay");
+            TitleText = this.FindControl<TextBlock>("TitleText");
+            InfoText = this.FindControl<TextBlock>("InfoText");
             DownloadButton = this.FindControl<Button>("DownloadButton");
             SetWallpaperButton = this.FindControl<Button>("SetWallpaperButton");
         }
@@ -48,6 +52,35 @@ namespace APOD_wallpapers
         private void WriteError(string error)
         {
             SetStatus($"ERROR: {error}");
+        }
+
+        private StringBuilder GetContentFromHtml(HtmlNode htmlNode)
+        {
+            String separator = " ";
+            var accumulatedText = new StringBuilder();
+
+            foreach (var node in htmlNode.ChildNodes)
+            {
+                if (node.Name == "#text")
+                {
+                    accumulatedText.Append(node.InnerText.Replace("\n", separator));
+                }
+                else if (node.Name == "b")
+                {
+                    accumulatedText.Append(node.InnerText).Replace("\n", separator);
+                }
+                else if (node.Name == "i")
+                {
+                    accumulatedText.Append(node.InnerText).Replace("\n", separator);
+                }
+                else if (node.Name == "a")
+                {
+                    //string href = node.GetAttributeValue("href", "#");
+                    accumulatedText.Append($"{node.InnerText.Replace("\n", separator)}");
+                }
+            }
+
+            return accumulatedText;
         }
         
         private async void DownloadTodayImage()
@@ -67,7 +100,13 @@ namespace APOD_wallpapers
                         string image_url = Program.APOD_URL_BASE + Program.GetImageURLFromAPOD(page);
                         if (Program.IsValidURL(image_url))
                         {
-                            image = new Bitmap(await Program.DownloadImage(client, image_url));
+                            // Coger la descripcion
+                            TitleText.Text = "";
+                            InfoText.Text = "";
+                            TitleText.Text = GetContentFromHtml(Program.GetImageTitleFromAPOD(page)).ToString();
+                            InfoText.Text = GetContentFromHtml(Program.GetImageDescriptionFromAPOD(page)).ToString();
+                            
+                            image = await Program.DownloadImage(client, image_url);
                             file_name = Program.GetImagefileNameFromURL(image_url);
                             if (image != null)
                             {
