@@ -1,0 +1,1 @@
+Aplicación de ejemplo en .NET multiplataforma que descarga la imagen del día de la APOD y da opción de establecerla como fondo de pantalla sin necesidad de navegador. Tiene versión UI o versión de consola, por lo que puede usarse para crear una tarea programada.
