@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net9.0</TargetFramework>
     <RootNamespace>APOD_wallpapers</RootNamespace>
     <Version>1.1.0</Version>
     <Description>Descarga la imagen del día de Astronomy Picture of Day (si está disponible) y establece el fondo de pantalla.</Description>
