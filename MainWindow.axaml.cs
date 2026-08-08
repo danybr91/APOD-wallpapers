@@ -1,5 +1,5 @@
 ﻿using System;
-using System.Net;
+using System.IO;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
@@ -16,6 +16,7 @@ namespace APOD_wallpapers
         private string file_name;
         private Bitmap image;
         private string imageName;
+        private string fullResUrl;
 
         private bool saved;
         
@@ -98,7 +99,8 @@ namespace APOD_wallpapers
                     {
                         HtmlDocument page = await Program.GetHTMLDocument(client, doc_url);
                         string image_url = Program.APOD_URL_BASE + Program.GetImageURLFromAPOD(page);
-                        if (Program.IsValidURL(image_url))
+                        string preview_url = Program.APOD_URL_BASE + Program.GetImagePreviewURLFromAPOD(page);
+                        if (Program.IsValidURL(image_url) && Program.IsValidURL(preview_url))
                         {
                             // Coger la descripcion
                             TitleText.Text = "";
@@ -106,7 +108,8 @@ namespace APOD_wallpapers
                             TitleText.Text = GetContentFromHtml(Program.GetImageTitleFromAPOD(page)).ToString();
                             InfoText.Text = GetContentFromHtml(Program.GetImageDescriptionFromAPOD(page)).ToString();
                             
-                            image = await Program.DownloadImage(client, image_url);
+                            image = await Program.DownloadImageParallel(client, preview_url);
+                            fullResUrl = image_url;
                             file_name = Program.GetImagefileNameFromURL(image_url);
                             if (image != null)
                             {
@@ -145,7 +148,16 @@ namespace APOD_wallpapers
             file_name = await dialog.ShowAsync(this);
             if (file_name != null)
             {
-                image.Save(file_name);
+                if (string.IsNullOrEmpty(fullResUrl))
+                {
+                    WriteError("No hay imagen de resolución completa para guardar.");
+                    saved = false;
+                    return false;
+                }
+
+                using var client = new HttpClient();
+                byte[] bytes = await Program.DownloadImageParallelToBytes(client, fullResUrl);
+                File.WriteAllBytes(file_name, bytes);
                 saved = true;
                 WriteInfo($"Imagen guardada en {file_name}");
                 return true;

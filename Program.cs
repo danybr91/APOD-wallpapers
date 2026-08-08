@@ -1,7 +1,10 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -16,9 +19,11 @@ namespace APOD_wallpapers
         public static string APOD_URL_BASE = "https://apod.nasa.gov/apod/";
         public static string APOD_MAIN_PAGE = "astropix.html";
         public static string IMAGE_URL_SEARCH_XPATH = "//center//a[starts-with(@href,'image')]";
+        public static string IMAGE_PREVIEW_URL_SEARCH_XPATH = "//center//a[starts-with(@href,'image')]/img";
         public static string IMAGE_TITLE_SEARCH_XPATH = "//center[2]";
         public static string IMAGE_DESCRIPTION_SEARCH_XPATH = "//body/p[1]";
         public static string DEFAULT_DOWNLOAD_DIR = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
+        public const int DEFAULT_PARALLEL_CONNECTIONS = 4;
         
         private static bool DEBUG = false;
         
@@ -182,7 +187,7 @@ namespace APOD_wallpapers
                         if (IsValidFilePath(file_path))
                         {
                             WriteInfo($"Descargando imagen del día en '{file_path}'");
-                            using var image = await DownloadImage(client, image_url);
+                            using var image = await DownloadImageParallel(client, image_url);
                             image.Save(file_path);
                             if (CheckFileAccess(file_path, FileMode.Open, FileAccess.Read) && IsImageFile(file_path))
                             {
@@ -290,6 +295,20 @@ namespace APOD_wallpapers
             }
         }
 
+        public static string GetImagePreviewURLFromAPOD(HtmlDocument page_document)
+        {
+            WriteDebug($"Comando XPATH: '{IMAGE_PREVIEW_URL_SEARCH_XPATH}'");
+            var node = page_document.DocumentNode.SelectSingleNode(IMAGE_PREVIEW_URL_SEARCH_XPATH);
+            if (node != null)
+            {
+                return node.GetAttributeValue("src", "");
+            }
+            else
+            {
+                throw new NodeNotFoundException("No se ha encontrado la imagen de vista previa en el sitio web.");
+            }
+        }
+
         public static HtmlNode GetImageTitleFromAPOD(HtmlDocument page_document)
         {
             WriteDebug($"Comando XPATH: '{IMAGE_TITLE_SEARCH_XPATH}'");
@@ -338,16 +357,125 @@ namespace APOD_wallpapers
 
         public static async Task<Bitmap> DownloadImage(HttpClient client, string url, CancellationToken token = default, int timeout = 30000)
         {
+            var bytes = await DownloadImageToBytes(client, url, token, timeout);
+            using var memoryStream = new MemoryStream(bytes, writable: false);
+
+            return new Bitmap(memoryStream);
+        }
+
+        public static async Task<byte[]> DownloadImageToBytes(HttpClient client, string url, CancellationToken token = default, int timeout = 30000)
+        {
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(token);
             cts.CancelAfter(timeout);
 
             var response = await client.GetAsync(url, HttpCompletionOption.ResponseContentRead, cts.Token);
             response.EnsureSuccessStatusCode();
 
-            var bytes = await response.Content.ReadAsByteArrayAsync(cts.Token);
+            return await response.Content.ReadAsByteArrayAsync(cts.Token);
+        }
+
+        public static async Task<Bitmap> DownloadImageParallel(HttpClient client, string url, CancellationToken token = default, int timeout = 30000, int maxConnections = DEFAULT_PARALLEL_CONNECTIONS)
+        {
+            var bytes = await DownloadImageParallelToBytes(client, url, token, timeout, maxConnections);
             using var memoryStream = new MemoryStream(bytes, writable: false);
 
             return new Bitmap(memoryStream);
+        }
+
+        public static async Task<byte[]> DownloadImageParallelToBytes(HttpClient client, string url, CancellationToken token = default, int timeout = 30000, int maxConnections = DEFAULT_PARALLEL_CONNECTIONS)
+        {
+            long total;
+            using (var probeCts = CancellationTokenSource.CreateLinkedTokenSource(token))
+            {
+                probeCts.CancelAfter(timeout);
+
+                using (var probeRequest = new HttpRequestMessage(HttpMethod.Get, url))
+                {
+                    probeRequest.Headers.Range = new RangeHeaderValue(0, 0);
+                    using var probeResponse = await client.SendAsync(probeRequest, HttpCompletionOption.ResponseHeadersRead, probeCts.Token);
+                    probeResponse.EnsureSuccessStatusCode();
+
+                    if (probeResponse.StatusCode != HttpStatusCode.PartialContent)
+                    {
+                        throw new HttpRequestException($"El servidor no soporta descargas por rango (HTTP {(int)probeResponse.StatusCode} en vez de 206).");
+                    }
+
+                    var contentRange = probeResponse.Content.Headers.ContentRange;
+                    if (contentRange == null || !contentRange.Length.HasValue)
+                    {
+                        throw new HttpRequestException("El servidor no indicó el tamaño total de la imagen.");
+                    }
+
+                    total = contentRange.Length.Value;
+                }
+            }
+
+            WriteDebug($"Descarga paralela de {total} bytes usando {maxConnections} conexiones.");
+
+            string tempPath = Path.GetTempFileName();
+            try
+            {
+                using (var setupStream = new FileStream(tempPath, FileMode.Open, FileAccess.Write, FileShare.ReadWrite))
+                {
+                    setupStream.SetLength(total);
+                }
+
+                using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(token);
+                var tasks = new List<Task>();
+                long chunkSize = (long)Math.Ceiling(total / (double)maxConnections);
+                for (long start = 0; start < total; start += chunkSize)
+                {
+                    long chunkStart = start;
+                    long chunkEnd = Math.Min(start + chunkSize - 1, total - 1);
+                    tasks.Add(DownloadRangeToFileAsync(client, url, chunkStart, chunkEnd, tempPath, cancellation.Token, timeout));
+                }
+
+                try
+                {
+                    await Task.WhenAll(tasks);
+                }
+                catch
+                {
+                    cancellation.Cancel();
+                    throw;
+                }
+
+                return await File.ReadAllBytesAsync(tempPath, token);
+            }
+            finally
+            {
+                try
+                {
+                    File.Delete(tempPath);
+                }
+                catch (IOException)
+                {
+                }
+                catch (UnauthorizedAccessException)
+                {
+                }
+            }
+        }
+
+        private static async Task DownloadRangeToFileAsync(HttpClient client, string url, long start, long end, string tempPath, CancellationToken token, int timeout)
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(token);
+            cts.CancelAfter(timeout);
+
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Range = new RangeHeaderValue(start, end);
+            using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cts.Token);
+            response.EnsureSuccessStatusCode();
+
+            if (response.StatusCode != HttpStatusCode.PartialContent)
+            {
+                throw new HttpRequestException($"El servidor no devolvió un rango (206) para el rango {start}-{end}.");
+            }
+
+            using var contentStream = await response.Content.ReadAsStreamAsync(cts.Token);
+            using var fileStream = new FileStream(tempPath, FileMode.Open, FileAccess.Write, FileShare.ReadWrite, 81920, useAsync: true);
+            fileStream.Seek(start, SeekOrigin.Begin);
+            await contentStream.CopyToAsync(fileStream, cts.Token);
         }
 
         public static void SetWallpaper(string image_path)

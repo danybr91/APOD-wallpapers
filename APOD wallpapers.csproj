@@ -4,7 +4,7 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net9.0</TargetFramework>
     <RootNamespace>APOD_wallpapers</RootNamespace>
-    <Version>1.1.0</Version>
+    <Version>1.2.0</Version>
     <Description>Descarga la imagen del día de Astronomy Picture of Day (si está disponible) y establece el fondo de pantalla.</Description>
     <ApplicationIcon>favicon.ico</ApplicationIcon>
     <PackageIcon>favicon.ico</PackageIcon>
@@ -16,7 +16,17 @@
     <PackageReference Include="Avalonia.Diagnostics" Version="11.3.12" />
     <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.12" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.12" />
-    <PackageReference Include="HtmlAgilityPack" Version="1.11.24" />
+    <PackageReference Include="HtmlAgilityPack" Version="1.12.4" />
+    <PackageReference Include="Tmds.DBus.Protocol" Version="0.21.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="APOD.Tests/**" />
+    <None Remove="APOD.Tests/**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="APOD.Tests" />
   </ItemGroup>
 
   <ItemGroup>
