@@ -156,6 +156,7 @@ namespace APOD_wallpapers
             return extension.Equals(".bmp") ||
                    extension.Equals(".jpg") ||
                    extension.Equals(".jpeg") ||
+                   extension.Equals(".gif") ||
                    extension.Equals(".png");
         }
 
