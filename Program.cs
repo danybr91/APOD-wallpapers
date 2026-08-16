@@ -16,62 +16,25 @@ namespace APOD_wallpapers
 {
     class Program
     {
-        public static string APOD_URL_BASE = "https://apod.nasa.gov/apod/";
-        public static string APOD_MAIN_PAGE = "astropix.html";
-        public static string IMAGE_URL_SEARCH_XPATH = "//center//a[starts-with(@href,'image')]";
-        public static string IMAGE_PREVIEW_URL_SEARCH_XPATH = "//center//a[starts-with(@href,'image')]/img";
-        public static string IMAGE_TITLE_SEARCH_XPATH = "//center[2]";
-        public static string IMAGE_DESCRIPTION_SEARCH_XPATH = "//body/p[1]";
-        public static string DEFAULT_DOWNLOAD_DIR = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
+        public const string APOD_URL_BASE = "https://apod.nasa.gov/apod/";
+        public const string APOD_MAIN_PAGE = "astropix.html";
+        public const string IMAGE_URL_SEARCH_XPATH = "//center//a[starts-with(@href,'image')]";
+        public const string IMAGE_PREVIEW_URL_SEARCH_XPATH = "//center//a[starts-with(@href,'image')]/img";
+        public const string IMAGE_TITLE_SEARCH_XPATH = "//center[2]";
+        public const string IMAGE_DESCRIPTION_SEARCH_XPATH = "//body/p[1]";
         public const int DEFAULT_PARALLEL_CONNECTIONS = 4;
         
-        private static bool DEBUG = false;
+        public static string DEFAULT_DOWNLOAD_DIR = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
+        
+        #region P/Invoke declarations
         
         [DllImport("User32", CharSet = CharSet.Auto)]
         private static extern int SystemParametersInfo(int uiAction, int uiParam, string pvParam, uint fWinIni);
+        
+        #endregion
 
-        private static void WriteLine(string line)
-        {
-            Console.WriteLine(line);
-        }
-
-        private static void WriteInfo(string line)
-        {
-            Console.WriteLine($"INFO\t=> {line}");
-        }
-
-        private static void WriteError(string line)
-        {
-            Console.WriteLine($"ERROR\t=> {line}");
-        }
-
-        private static void WriteDebug(string line)
-        {
-            if (DEBUG)
-            {
-                Console.WriteLine($"DEBUG\t=> {line}");
-            }
-        }
-
-        private static void Pause()
-        {
-            Console.Write("\nPulse cualquier tecla para continuar.");
-            Console.ReadLine();
-        }
-
-        private static void ShowHelp()
-        {
-            WriteLine("APOD Wallpapers:");
-            WriteLine("\tDescarga la imagen del día de Astronomy Picture of Day (si está disponible) y establece el fondo de pantalla.");
-            WriteLine("Opciones:\n");
-            WriteLine("-h, --help\t\tMostrar ayuda");
-            WriteLine($"--outputDir\t\tEstablece el directorio donde se guardarán las imágenes. Por defecto es: {DEFAULT_DOWNLOAD_DIR}");
-            WriteLine("--fileName\t\tGuarda la imagen con el nombre de fichero dado. Por defecto obtiene el nombre de la web.");
-            WriteLine("-skip-wallpaper\t\tSolo descarga la imagen, no establece el fondo de pantalla.");
-            WriteLine("-d, --debug\t\tIncrementar información de la ejecución y no cerrar la ventana auotmáticamente.");
-            WriteLine("--no-gui\t\tEjecutar la versión de consola");
-        }
-
+        private static bool DEBUG = false;
+        
         static void Main(string[] args)
         {
             try
@@ -129,6 +92,11 @@ namespace APOD_wallpapers
                     }
                 }
                 
+                if (is_gui && args.Length > 0)
+                {
+                    WriteWarning("Los argumentos no tienen efecto en modo GUI; añade --no-gui para que se apliquen.");
+                }
+                
                 if (is_gui)
                 {
                     AppBuilder.Configure<App>()
@@ -155,73 +123,8 @@ namespace APOD_wallpapers
                 Environment.Exit(1);
             }
         }
-
-        /*
-        1. buscar tag center
-        2. buscar tag IMG3
-        3. buscar tag a encima de IMG
-        4. descargar href en imagenes
-        5. comprobar es imagen valida
-        5. poner fondo de pantalla
-         */
-        private async static Task DownloadTodayImageAsync(string download_dir, string file_name, bool set_wallpaper)
-        {
-            WriteInfo("APOD wallpaper downloader started...");
-            
-            string doc_url = APOD_URL_BASE + APOD_MAIN_PAGE;
-            using (var client = new HttpClient())
-            {
-                if (IsValidURL(doc_url))
-                {
-                    WriteInfo($"Conectando con '{doc_url}' para determinar la imagen del día");
-
-                    HtmlDocument page = GetHTMLDocument(client, doc_url).GetAwaiter().GetResult();
-                    string image_url = APOD_URL_BASE + GetImageURLFromAPOD(page);
-                    if (IsValidURL(image_url))
-                    {
-                        WriteInfo($"Conectando con '{image_url}' para descargar la imagen del día");
-                        string file_path = Path.Combine(download_dir, 
-                            file_name == null ? 
-                            GetImagefileNameFromURL(image_url) : 
-                            file_name + GetFileNameExtension(GetImagefileNameFromURL(image_url)));
-                        if (IsValidFilePath(file_path))
-                        {
-                            WriteInfo($"Descargando imagen del día en '{file_path}'");
-                            using var image = await DownloadImageParallel(client, image_url);
-                            image.Save(file_path);
-                            if (CheckFileAccess(file_path, FileMode.Open, FileAccess.Read) && IsImageFile(file_path))
-                            {
-                                if (set_wallpaper)
-                                {
-                                    WriteInfo($"Cambiando el wallpaper por '{file_path}'");
-                                    SetWallpaper(file_path);
-                                }
-                                if (DEBUG) Pause();
-                                Environment.Exit(0);
-                            }
-                            else
-                            {
-                                throw new Exception($"El archivo '{file_path}' no es una imagen válida.");
-                            }
-                        }
-                        else
-                        {
-                            throw new Exception($"La ruta de descarga '{file_path}' no es válida");
-                        }
-                    }
-                    else
-                    {
-                        throw new Exception($"La URL de la imagen '{image_url}' no es válida");
-                    }
-                }
-                else
-                {
-                    throw new Exception($"La URL de APOD '{doc_url}' no es válida");
-                }
-            }
-        }
-
-        // API
+        
+        #region Public API
         
         public static bool IsValidURL(string URL)
         {
@@ -482,15 +385,15 @@ namespace APOD_wallpapers
         {
             string path = new Uri(image_path).LocalPath;
 
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            if (isWindows())
             {
                 SystemParametersInfo(0x0014, 0, path, 0x0001);
             }
-            else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            else if (isOsx())
             {
                 Process.Start("osascript", $"-e 'tell application \"Finder\" to set desktop picture to POSIX file \"{path}\"'");
             }
-            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            else if (isLinux())
             {
                 string desktop = Environment.GetEnvironmentVariable("XDG_CURRENT_DESKTOP")?.ToLower() ?? "";
 
@@ -510,5 +413,131 @@ namespace APOD_wallpapers
                 throw new PlatformNotSupportedException("Sistema operativo no soportado para cambiar el fondo de pantalla.");
             }
         }
+        
+        #endregion
+        
+        #region Internal API
+        
+        private static void ShowHelp()
+        {
+            WriteLine("APOD Wallpapers:");
+            WriteLine("\tDescarga la imagen del día de Astronomy Picture of Day (si está disponible) y establece el fondo de pantalla.");
+            WriteLine("Opciones:\n");
+            WriteLine("-h, --help\t\tMostrar ayuda");
+            WriteLine($"--outputDir\t\tEstablece el directorio donde se guardarán las imágenes. Por defecto es: {DEFAULT_DOWNLOAD_DIR}");
+            WriteLine("--fileName\t\tGuarda la imagen con el nombre de fichero dado. Por defecto obtiene el nombre de la web.");
+            WriteLine("--skip-wallpaper\t\tSolo descarga la imagen, no establece el fondo de pantalla.");
+            WriteLine("-d, --debug\t\tIncrementar información de la ejecución y no cerrar la ventana auotmáticamente.");
+            WriteLine("--no-gui\t\tEjecutar la versión de consola");
+            WriteLine("\nNota: las opciones de descarga (--outputDir, --fileName, --skip-wallpaper) solo tienen efecto");
+            WriteLine("con --no-gui; sin él se abre la interfaz gráfica y esos argumentos se ignoran.");
+        }
+        
+        private static bool isWindows() => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+
+        private static bool isLinux() => RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
+
+        private static bool isOsx() => RuntimeInformation.IsOSPlatform(OSPlatform.OSX);
+        
+        private static void WriteLine(string line)
+        {
+            Console.WriteLine(line);
+        }
+
+        private static void WriteInfo(string line)
+        {
+            Console.WriteLine($"INFO\t=> {line}");
+        }
+
+        private static void WriteWarning(string line)
+        {
+            Console.WriteLine($"WARN\t=> {line}");
+        }
+
+        private static void WriteError(string line)
+        {
+            Console.WriteLine($"ERROR\t=> {line}");
+        }
+
+        private static void WriteDebug(string line)
+        {
+            if (DEBUG)
+            {
+                Console.WriteLine($"DEBUG\t=> {line}");
+            }
+        }
+
+        private static void Pause()
+        {
+            Console.Write("\nPulse cualquier tecla para continuar.");
+            Console.ReadLine();
+        }
+        
+        /*
+        1. buscar tag center
+        2. buscar tag IMG3
+        3. buscar tag a encima de IMG
+        4. descargar href en imagenes
+        5. comprobar es imagen valida
+        5. poner fondo de pantalla
+         */
+        private async static Task DownloadTodayImageAsync(string download_dir, string file_name, bool set_wallpaper)
+        {
+            WriteInfo("APOD wallpaper downloader started...");
+            
+            string doc_url = APOD_URL_BASE + APOD_MAIN_PAGE;
+            using (var client = new HttpClient())
+            {
+                if (IsValidURL(doc_url))
+                {
+                    WriteInfo($"Conectando con '{doc_url}' para determinar la imagen del día");
+
+                    HtmlDocument page = GetHTMLDocument(client, doc_url).GetAwaiter().GetResult();
+                    string image_url = APOD_URL_BASE + GetImageURLFromAPOD(page);
+                    if (IsValidURL(image_url))
+                    {
+                        WriteInfo($"Conectando con '{image_url}' para descargar la imagen del día");
+                        string file_path = Path.Combine(download_dir, 
+                            file_name == null ? 
+                            GetImagefileNameFromURL(image_url) : 
+                            file_name + GetFileNameExtension(GetImagefileNameFromURL(image_url)));
+                        if (IsValidFilePath(file_path))
+                        {
+                            WriteInfo($"Descargando imagen del día en '{file_path}'");
+                            byte[] image_bytes = await DownloadImageParallelToBytes(client, image_url);
+                            File.WriteAllBytes(file_path, image_bytes);
+                            if (CheckFileAccess(file_path, FileMode.Open, FileAccess.Read) && IsImageFile(file_path))
+                            {
+                                if (set_wallpaper)
+                                {
+                                    WriteInfo($"Cambiando el wallpaper por '{file_path}'");
+                                    SetWallpaper(file_path);
+                                }
+                                if (DEBUG) Pause();
+                                Environment.Exit(0);
+                            }
+                            else
+                            {
+                                throw new Exception($"El archivo '{file_path}' no es una imagen válida.");
+                            }
+                        }
+                        else
+                        {
+                            throw new Exception($"La ruta de descarga '{file_path}' no es válida");
+                        }
+                    }
+                    else
+                    {
+                        throw new Exception($"La URL de la imagen '{image_url}' no es válida");
+                    }
+                }
+                else
+                {
+                    throw new Exception($"La URL de APOD '{doc_url}' no es válida");
+                }
+            }
+        }
+        
+        #endregion
     }
 }
