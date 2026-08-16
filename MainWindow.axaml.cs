@@ -1,7 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Net.Http;
-using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
@@ -19,6 +19,9 @@ namespace APOD_wallpapers
         private Bitmap image;
         private string imageName;
         private string fullResUrl;
+        private DateTime _currentDate = DateTime.Today;
+        private bool _isSettingDate;
+        private CancellationTokenSource _loadCts;
         
         public MainWindow()
         {
@@ -38,6 +41,15 @@ namespace APOD_wallpapers
             InfoText = this.FindControl<TextBlock>("InfoText");
             DownloadButton = this.FindControl<Button>("DownloadButton");
             SetWallpaperButton = this.FindControl<Button>("SetWallpaperButton");
+            DatePicker = this.FindControl<DatePicker>("DatePicker");
+            PrevDayButton = this.FindControl<Button>("PrevDayButton");
+            NextDayButton = this.FindControl<Button>("NextDayButton");
+
+            DatePicker.MinYear = new DateTimeOffset(Program.APOD_MIN_DATE);
+            DatePicker.MaxYear = new DateTimeOffset(DateTime.Today);
+            _isSettingDate = true;
+            DatePicker.SelectedDate = new DateTimeOffset(DateTime.Today);
+            _isSettingDate = false;
         }
         
         private void SetStatus(string message)
@@ -110,31 +122,61 @@ namespace APOD_wallpapers
             };
         }
         
-        private async void DownloadTodayImage()
+        private void DownloadTodayImage()
         {
-            LoadingOverlay.IsVisible = true;
-            DownloadButton.IsEnabled = false;
-            SetWallpaperButton.IsEnabled = false;
-            WriteInfo("Descargando la imagen del día...");
+            LoadDate(DateTime.Today);
+        }
+
+        private void UpdateControls(bool loading)
+        {
+            LoadingOverlay.IsVisible = loading;
+            DownloadButton.IsEnabled = !loading;
+            SetWallpaperButton.IsEnabled = !loading;
+            DatePicker.IsEnabled = !loading;
+            PrevDayButton.IsEnabled = !loading && _currentDate > Program.APOD_MIN_DATE;
+            NextDayButton.IsEnabled = !loading && _currentDate < DateTime.Today;
+        }
+
+        private async void LoadDate(DateTime date)
+        {
+            if (date < Program.APOD_MIN_DATE || date > DateTime.Today)
+            {
+                WriteError("Fecha fuera del rango de APOD (del 16/06/1995 a hoy).");
+                return;
+            }
+
+            _loadCts?.Cancel();
+            _loadCts = new CancellationTokenSource();
+            CancellationToken token = _loadCts.Token;
+
+            _currentDate = date;
+            _isSettingDate = true;
+            DatePicker.SelectedDate = new DateTimeOffset(date);
+            _isSettingDate = false;
+
+            UpdateControls(true);
+            WriteInfo($"Descargando la imagen del {date:dd/MM/yyyy}...");
             try
             {
                 using (var client = new HttpClient())
                 {
-                    string doc_url = Program.APOD_URL_BASE + Program.APOD_MAIN_PAGE;
+                    string doc_url = Program.GetAPODPageURL(date);
                     if (Program.IsValidURL(doc_url))
                     {
-                        HtmlDocument page = await Program.GetHTMLDocument(client, doc_url);
+                        HtmlDocument page = await Program.GetHTMLDocument(client, doc_url, token);
+                        token.ThrowIfCancellationRequested();
+
                         string image_url = Program.APOD_URL_BASE + Program.GetImageURLFromAPOD(page);
                         string preview_url = Program.APOD_URL_BASE + Program.GetImagePreviewURLFromAPOD(page);
                         if (Program.IsValidURL(image_url) && Program.IsValidURL(preview_url))
                         {
-                            // Coger la descripcion
                             TitleText.Text = "";
                             InfoText.Text = "";
                             SetDescriptionFromHtml(TitleText, Program.GetImageTitleFromAPOD(page));
                             SetDescriptionFromHtml(InfoText, Program.GetImageDescriptionFromAPOD(page));
-                            
-                            image = await Program.DownloadImageParallel(client, preview_url);
+
+                            image = await Program.DownloadImageParallel(client, preview_url, token);
+                            token.ThrowIfCancellationRequested();
                             fullResUrl = image_url;
                             file_name = Program.GetImagefileNameFromURL(image_url);
                             if (image != null)
@@ -146,16 +188,39 @@ namespace APOD_wallpapers
                     }
                 }
             }
+            catch (OperationCanceledException)
+            {
+            }
             catch (Exception e)
             {
                 WriteError(e.Message);
             }
             finally
             {
-                LoadingOverlay.IsVisible = false;
-                DownloadButton.IsEnabled = true;
-                SetWallpaperButton.IsEnabled = true;
+                if (!token.IsCancellationRequested)
+                {
+                    UpdateControls(false);
+                }
             }
+        }
+
+        private void DatePicker_SelectedDateChanged(object sender, DatePickerSelectedValueChangedEventArgs e)
+        {
+            if (_isSettingDate) return;
+            if (e.NewDate.HasValue)
+            {
+                LoadDate(e.NewDate.Value.Date);
+            }
+        }
+
+        private void PrevDayButton_Click(object sender, RoutedEventArgs e)
+        {
+            LoadDate(_currentDate.AddDays(-1));
+        }
+
+        private void NextDayButton_Click(object sender, RoutedEventArgs e)
+        {
+            LoadDate(_currentDate.AddDays(1));
         }
         
         private async Task<bool> SaveImageAsync()
@@ -179,9 +244,7 @@ namespace APOD_wallpapers
                     return false;
                 }
 
-                LoadingOverlay.IsVisible = true;
-                DownloadButton.IsEnabled = false;
-                SetWallpaperButton.IsEnabled = false;
+                UpdateControls(true);
                 try
                 {
                     WriteInfo("Descargando la imagen...");
@@ -196,9 +259,7 @@ namespace APOD_wallpapers
                 }
                 finally
                 {
-                    LoadingOverlay.IsVisible = false;
-                    DownloadButton.IsEnabled = true;
-                    SetWallpaperButton.IsEnabled = true;
+                    UpdateControls(false);
                 }
 
                 return true;

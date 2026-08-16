@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Net;
 using System.Net.Http;
@@ -24,6 +25,8 @@ namespace APOD_wallpapers
         public const string IMAGE_DESCRIPTION_SEARCH_XPATH = "//body/p[1]";
         public const int DEFAULT_PARALLEL_CONNECTIONS = 4;
         
+        public static readonly DateTime APOD_MIN_DATE = new DateTime(1995, 6, 16);
+        
         public static string DEFAULT_DOWNLOAD_DIR = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
         
         #region P/Invoke declarations
@@ -37,7 +40,7 @@ namespace APOD_wallpapers
         {
             try
             {
-                (string to_file, bool set_wallpaper) = ParseArguments(args);
+                (string to_file, bool set_wallpaper, DateTime? date) = ParseArguments(args);
 
                 if (to_file == null)
                 {
@@ -49,7 +52,7 @@ namespace APOD_wallpapers
                 else
                 {
                     WriteInfo("APOD wallpaper downloader started...");
-                    string doc_url = APOD_URL_BASE + APOD_MAIN_PAGE;
+                    string doc_url = date.HasValue ? GetAPODPageURL(date.Value) : APOD_URL_BASE + APOD_MAIN_PAGE;
                     using (var client = new HttpClient())
                     {
                         WriteInfo($"Conectando con '{doc_url}' para determinar la imagen del día");
@@ -110,6 +113,25 @@ namespace APOD_wallpapers
         {
             Uri uri_result;
             return Uri.TryCreate(URL, UriKind.Absolute, out uri_result) && ( uri_result.Scheme == Uri.UriSchemeHttp || uri_result.Scheme == Uri.UriSchemeHttps);
+        }
+
+        public static string GetAPODPageURL(DateTime date)
+        {
+            return $"{APOD_URL_BASE}ap{date:yyMMdd}.html";
+        }
+
+        public static bool IsValidAPODDate(DateTime date)
+        {
+            return date >= APOD_MIN_DATE && date <= DateTime.Today;
+        }
+
+        public static DateTime? ParseAPODDate(string value)
+        {
+            if (DateTime.TryParseExact(value, "yyMMdd", CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime date))
+            {
+                return date;
+            }
+            return null;
         }
 
         public static bool IsValidFilePath(string file_path)
@@ -400,10 +422,11 @@ namespace APOD_wallpapers
             Console.Error.WriteLine($"ERROR\t=> {line}");
         }
         
-        private static (string to_file, bool set_wallpaper) ParseArguments(string[] args)
+        private static (string to_file, bool set_wallpaper, DateTime? date) ParseArguments(string[] args)
         {
             string to_file = null;
             bool set_wallpaper = false;
+            DateTime? date = null;
 
             for (int i = 0; i < args.Length; i++)
             {
@@ -428,6 +451,21 @@ namespace APOD_wallpapers
                         // Sin valor: directorio por defecto
                         to_file = DEFAULT_DOWNLOAD_DIR;
                         break;
+                    case "--date":
+                        // Get next
+                        if (i + 1 < args.Length && !args[i + 1].StartsWith("-"))
+                        {
+                            i = i + 1;
+                            DateTime? parsed = ParseAPODDate(args[i]);
+                            if (parsed.HasValue && IsValidAPODDate(parsed.Value))
+                            {
+                                date = parsed;
+                                break;
+                            }
+                            throw new ArgumentException(
+                                $"Fecha '{args[i]}' no válida o fuera del rango de APOD (desde {APOD_MIN_DATE:dd/MM/yyyy} hasta hoy). Formato esperado: aammdd (ej. 260814 = 14/08/2026).");
+                        }
+                        throw new ArgumentException("El parámetro --date requiere un valor en formato aammdd (ej. 260814 = 14/08/2026).");
                     case "--help":
                     case "-h":
                         ShowHelp();
@@ -438,12 +476,12 @@ namespace APOD_wallpapers
                 }
             }
 
-            if (set_wallpaper && to_file == null)
+            if ((set_wallpaper || date.HasValue) && to_file == null)
             {
                 to_file = DEFAULT_DOWNLOAD_DIR;
             }
 
-            return (to_file, set_wallpaper);
+            return (to_file, set_wallpaper, date);
         }
         
         private static void ShowHelp()
@@ -456,8 +494,10 @@ namespace APOD_wallpapers
             WriteLine("\t\t\timagen en ese directorio con el nombre que le da la web. Sin <ruta> usa el");
             WriteLine($"\t\t\tdirectorio por defecto ({DEFAULT_DOWNLOAD_DIR}).");
             WriteLine("--set-wallpaper\t\tEstablece la imagen como fondo de pantalla tras descargarla.");
+            WriteLine("--date <aammdd>\t\tDescarga la imagen de la fecha indicada (formato aammdd, ej. 260814 =");
+            WriteLine($"\t\t\t14/08/2026). Rango válido: desde {APOD_MIN_DATE:dd/MM/yyyy} hasta hoy.");
             WriteLine("\nSin argumentos se abre la interfaz gráfica. Cualquiera de las opciones anteriores ejecuta la");
-            WriteLine($"versión de consola. --set-wallpaper implica --to-file sin valor (guarda en {DEFAULT_DOWNLOAD_DIR})");
+            WriteLine($"versión de consola. --set-wallpaper y --date implican --to-file sin valor (guarda en {DEFAULT_DOWNLOAD_DIR})");
             WriteLine("a no ser que se indique un --to-file explícito.");
         }
         

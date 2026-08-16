@@ -6,6 +6,12 @@
         Width="840" Height="740"
         RequestedThemeVariant="Dark">
 
+    <Window.Resources>
+        <!-- Padding interno horizontal del selector de fecha -->
+        <Thickness x:Key="DatePickerHostPadding">8,3,8,6</Thickness>
+        <Thickness x:Key="DatePickerHostMonthPadding">17,3,8,6</Thickness>
+    </Window.Resources>
+
     <Window.Styles>
         <Style Selector="Button">
             <Setter Property="Background" Value="#0078D4"/>
@@ -42,6 +48,14 @@
         <Style Selector="HyperlinkButton.link:pressed /template/ ContentPresenter">
             <Setter Property="Background" Value="Transparent"/>
         </Style>
+
+        <!-- Números del selector de fecha centrados y legibles -->
+        <Style Selector="DatePicker /template/ TextBlock#PART_DayTextBlock,
+                         DatePicker /template/ TextBlock#PART_MonthTextBlock,
+                         DatePicker /template/ TextBlock#PART_YearTextBlock">
+            <Setter Property="TextAlignment" Value="Center"/>
+            <Setter Property="FontSize" Value="16"/>
+        </Style>
     </Window.Styles>
 
     <Grid RowDefinitions="*, Auto, Auto">
@@ -70,28 +84,76 @@
                                HorizontalAlignment="Center"/>
                 </StackPanel>
             </Border>
+
+            <!-- Navegación día anterior/siguiente -->
+            <Button x:Name="PrevDayButton"
+                    Click="PrevDayButton_Click"
+                    ToolTip.Tip="Día anterior"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Center"
+                    Margin="12"
+                    Width="44" Height="44"
+                    Padding="0"
+                    Opacity="0.85">
+                <Path Fill="White"
+                      Data="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"
+                      Width="24" Height="24"/>
+            </Button>
+            <Button x:Name="NextDayButton"
+                    Click="NextDayButton_Click"
+                    ToolTip.Tip="Día siguiente"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Center"
+                    Margin="12"
+                    Width="44" Height="44"
+                    Padding="0"
+                    Opacity="0.85">
+                <Path Fill="White"
+                      Data="M10 6 8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"
+                      Width="24" Height="24"/>
+            </Button>
         </Grid>
 
         <!-- Descripción de la imagen -->
-    
-        
         <ScrollViewer Grid.Row="1"
                       Background="#CC1E1E1E"
                       MaxHeight="200"
                       VerticalScrollBarVisibility="Auto">
             <Grid RowDefinitions="Auto, Auto, Auto">
-                <TextBlock  x:Name="TitleText" Grid.Row="0"
-                            Padding="8" 
-                            TextWrapping="Wrap" 
-                            TextAlignment="Center"/>
-                <TextBlock x:Name="InfoText" Grid.Row="1" 
-                           Padding="8"  
+
+                <!-- Fila 1: selector de fecha (izq), título (centrado), más información (der) -->
+                <Grid Grid.Row="0">
+                    <TextBlock x:Name="TitleText"
+                               Padding="8"
+                               TextWrapping="Wrap"
+                               TextAlignment="Center"
+                               VerticalAlignment="Center"
+                               Margin="208,0,208, 0"/>
+                    <DatePicker x:Name="DatePicker"
+                                SelectedDateChanged="DatePicker_SelectedDateChanged"
+                                MinWidth="180"
+                                MaxWidth="200"
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Center"
+                                Margin="8"/>
+                    <HyperlinkButton NavigateUri="https://apod.nasa.gov"
+                                     ToolTip.Tip="Más información"
+                                     HorizontalAlignment="Right"
+                                     VerticalAlignment="Center"
+                                     Margin="8, 8, 12, 8"
+                                     Padding="0">
+                        <Path Fill="White"
+                              Data="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"
+                              Width="20" Height="20"/>
+                    </HyperlinkButton>
+                </Grid>
+
+                <!-- Fila 2: descripción a todo el ancho -->
+                <TextBlock x:Name="InfoText" Grid.Row="1"
+                           Padding="8"
                            TextWrapping="Wrap"
                            UseLayoutRounding="False"/>
-                <!-- Botón Abrir APOD -->
-                <HyperlinkButton Grid.Row="2" NavigateUri="https://apod.nasa.gov"
-                                 Content="Más información" />
-                
+
             </Grid>
         </ScrollViewer>
         
