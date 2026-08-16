@@ -17,8 +17,6 @@ namespace APOD_wallpapers
         private Bitmap image;
         private string imageName;
         private string fullResUrl;
-
-        private bool saved;
         
         public MainWindow()
         {
@@ -119,7 +117,6 @@ namespace APOD_wallpapers
                         }
                     }
                 }
-                saved = false;
             }
             catch (Exception e)
             {
@@ -151,18 +148,33 @@ namespace APOD_wallpapers
                 if (string.IsNullOrEmpty(fullResUrl))
                 {
                     WriteError("No hay imagen de resolución completa para guardar.");
-                    saved = false;
                     return false;
                 }
 
-                using var client = new HttpClient();
-                byte[] bytes = await Program.DownloadImageParallelToBytes(client, fullResUrl);
-                File.WriteAllBytes(file_name, bytes);
-                saved = true;
-                WriteInfo($"Imagen guardada en {file_name}");
+                LoadingOverlay.IsVisible = true;
+                DownloadButton.IsEnabled = false;
+                SetWallpaperButton.IsEnabled = false;
+                try
+                {
+                    WriteInfo("Descargando la imagen...");
+                    using var client = new HttpClient();
+                    byte[] bytes = await Program.DownloadImageParallelToBytes(client, fullResUrl);
+                    File.WriteAllBytes(file_name, bytes);
+                    WriteInfo($"Imagen guardada en {file_name}");
+                }
+                catch (Exception e)
+                {
+                    WriteError("Error al guardar la iamgen: " + e.Message);
+                }
+                finally
+                {
+                    LoadingOverlay.IsVisible = false;
+                    DownloadButton.IsEnabled = true;
+                    SetWallpaperButton.IsEnabled = true;
+                }
+
                 return true;
             }
-            saved = false;
             return false;
         }
 
@@ -171,11 +183,12 @@ namespace APOD_wallpapers
             await SaveImageAsync();
         }
 
-        private async void SetWallpaperButton_Click(object sender, RoutedEventArgs e)
+        private void SetWallpaperButton_Click(object sender, RoutedEventArgs e)
         {
-            if (!saved)
+            if (!File.Exists(file_name))
             {
-                if (!await SaveImageAsync()) return;
+                WriteError("La imagen no está guardada en el disco.");
+                return;
             }
             Program.SetWallpaper(file_name);
             WriteInfo($"Fondo de pantalla establecido");

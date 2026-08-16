@@ -48,7 +48,7 @@
                                  Height="4"
                                  Foreground="#0078D4"
                                  Background="#444444"/>
-                    <TextBlock Text="Cargando imagen..."
+                    <TextBlock Text="Descargando imagen..."
                                Foreground="#AAAAAA"
                                FontSize="13"
                                HorizontalAlignment="Center"/>
