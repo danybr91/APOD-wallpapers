@@ -4,8 +4,10 @@ using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.Controls.Documents;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using HtmlAgilityPack;
 
@@ -53,33 +55,59 @@ namespace APOD_wallpapers
             SetStatus($"ERROR: {error}");
         }
 
-        private StringBuilder GetContentFromHtml(HtmlNode htmlNode)
+        private void SetDescriptionFromHtml(TextBlock textBlock, HtmlNode htmlNode)
         {
-            String separator = " ";
-            var accumulatedText = new StringBuilder();
+            var inlines = new InlineCollection();
 
             foreach (var node in htmlNode.ChildNodes)
             {
                 if (node.Name == "#text")
                 {
-                    accumulatedText.Append(node.InnerText.Replace("\n", separator));
+                    inlines.Add(new Run(node.InnerText.Replace("\n", " ")));
                 }
                 else if (node.Name == "b")
                 {
-                    accumulatedText.Append(node.InnerText).Replace("\n", separator);
+                    inlines.Add(new Run { Text = node.InnerText.Replace("\n", " "), FontWeight = FontWeight.Bold });
                 }
                 else if (node.Name == "i")
                 {
-                    accumulatedText.Append(node.InnerText).Replace("\n", separator);
+                    inlines.Add(new Run { Text = node.InnerText.Replace("\n", " "), FontStyle = FontStyle.Italic });
                 }
                 else if (node.Name == "a")
                 {
-                    //string href = node.GetAttributeValue("href", "#");
-                    accumulatedText.Append($"{node.InnerText.Replace("\n", separator)}");
+                    Inline inline = CreateLinkInline(node);
+                    if (inline != null) inlines.Add(inline);
                 }
             }
 
-            return accumulatedText;
+            textBlock.Text = null;
+            textBlock.Inlines = inlines;
+        }
+
+        private Inline CreateLinkInline(HtmlNode node)
+        {
+            string href = node.GetAttributeValue("href", "");
+            string text = node.InnerText.Replace("\n", " ");
+            if (string.IsNullOrEmpty(text)) return null;
+
+            Uri uri = null;
+            if (!Uri.TryCreate(href, UriKind.Absolute, out uri))
+            {
+                Uri.TryCreate(new Uri(Program.APOD_URL_BASE), href, out uri);
+            }
+            if (uri == null) return new Run(text);
+
+            var link = new HyperlinkButton
+            {
+                Content = text,
+                NavigateUri = uri,
+                Classes = { "link" }
+            };
+            ToolTip.SetTip(link, uri);
+            return new InlineUIContainer(link)
+            {
+                BaselineAlignment = BaselineAlignment.Bottom
+            };
         }
         
         private async void DownloadTodayImage()
@@ -103,8 +131,8 @@ namespace APOD_wallpapers
                             // Coger la descripcion
                             TitleText.Text = "";
                             InfoText.Text = "";
-                            TitleText.Text = GetContentFromHtml(Program.GetImageTitleFromAPOD(page)).ToString();
-                            InfoText.Text = GetContentFromHtml(Program.GetImageDescriptionFromAPOD(page)).ToString();
+                            SetDescriptionFromHtml(TitleText, Program.GetImageTitleFromAPOD(page));
+                            SetDescriptionFromHtml(InfoText, Program.GetImageDescriptionFromAPOD(page));
                             
                             image = await Program.DownloadImageParallel(client, preview_url);
                             fullResUrl = image_url;

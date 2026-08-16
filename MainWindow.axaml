@@ -26,6 +26,22 @@
         <Style Selector="Button:pressed /template/ ContentPresenter">
             <Setter Property="Background" Value="#005A9E"/>
         </Style>
+        <Style Selector="HyperlinkButton.link">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#4FC3F7"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="MinHeight" Value="0"/>
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
+        <Style Selector="HyperlinkButton.link:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="HyperlinkButton.link:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
     </Window.Styles>
 
     <Grid RowDefinitions="*, Auto, Auto">
@@ -70,7 +86,8 @@
                             TextAlignment="Center"/>
                 <TextBlock x:Name="InfoText" Grid.Row="1" 
                            Padding="8"  
-                           TextWrapping="Wrap"/>
+                           TextWrapping="Wrap"
+                           UseLayoutRounding="False"/>
                 <!-- Botón Abrir APOD -->
                 <HyperlinkButton Grid.Row="2" NavigateUri="https://apod.nasa.gov"
                                  Content="Más información" />
