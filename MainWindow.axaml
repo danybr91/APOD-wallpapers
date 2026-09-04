@@ -139,7 +139,7 @@
                                 HorizontalAlignment="Left"
                                 VerticalAlignment="Center"
                                 Margin="16,8,8,8"/>
-                    <HyperlinkButton NavigateUri="https://apod.nasa.gov"
+                    <HyperlinkButton x:Name="MoreInfoLink"
                                      ToolTip.Tip="Más información"
                                      HorizontalAlignment="Right"
                                      VerticalAlignment="Center"

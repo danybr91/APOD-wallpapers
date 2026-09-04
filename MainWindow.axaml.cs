@@ -46,6 +46,7 @@ namespace APOD_wallpapers
             DatePicker = this.FindControl<DatePicker>("DatePicker");
             PrevDayButton = this.FindControl<Button>("PrevDayButton");
             NextDayButton = this.FindControl<Button>("NextDayButton");
+            MoreInfoLink = this.FindControl<HyperlinkButton>("MoreInfoLink");
 
             DatePicker.MinYear = new DateTimeOffset(Program.APOD_MIN_DATE);
             DatePicker.MaxYear = new DateTimeOffset(DateTime.Today);
@@ -172,6 +173,7 @@ namespace APOD_wallpapers
             _isSettingDate = true;
             DatePicker.SelectedDate = new DateTimeOffset(date);
             _isSettingDate = false;
+            MoreInfoLink.NavigateUri = new Uri(Program.GetAPODPageURL(date));
 
             UpdateControls(true);
             PreviewImage.Source = null;
