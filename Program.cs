@@ -525,7 +525,7 @@ namespace APOD_wallpapers
         
         private static void ShowHelp()
         {
-            WriteLine("APOD Wallpapers:");
+            WriteLine("APOD Wallpapers 2.1.0:");
             WriteLine("\tDescarga la imagen del día de Astronomy Picture of the Day y, si se indica, la establece como fondo de pantalla.");
             WriteLine("Opciones:\n");
             WriteLine("-h, --help\t\tMostrar ayuda");
