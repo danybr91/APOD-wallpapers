@@ -1,5 +1,6 @@
 ﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:web="using:Avalonia.Controls"
         x:Class="APOD_wallpapers.MainWindow"
         Title="APOD Wallpapers"
         MinWidth="800" MinHeight="600"
@@ -65,6 +66,12 @@
 
             <Image Name="PreviewImage"
                    Stretch="Uniform"/>
+
+            <!-- Reproductor de video -->
+            <web:NativeWebView x:Name="VideoWebView"
+                               IsVisible="False"
+                               HorizontalAlignment="Stretch"
+                               VerticalAlignment="Stretch"/>
 
             <!-- Overlay de carga -->
             <Border Name="LoadingOverlay"

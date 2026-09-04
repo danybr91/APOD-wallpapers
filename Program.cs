@@ -23,6 +23,7 @@ namespace APOD_wallpapers
         public const string IMAGE_PREVIEW_URL_SEARCH_XPATH = "//center//a[starts-with(@href,'image')]/img";
         public const string IMAGE_TITLE_SEARCH_XPATH = "//center[2]";
         public const string IMAGE_DESCRIPTION_SEARCH_XPATH = "//body/p[1]";
+        public const string VIDEO_SEARCH_XPATH = "//center//video";
         public const int DEFAULT_PARALLEL_CONNECTIONS = 4;
         
         public static readonly DateTime APOD_MIN_DATE = new DateTime(1995, 6, 16);
@@ -235,6 +236,43 @@ namespace APOD_wallpapers
             {
                 throw new NodeNotFoundException("Fallo al extraer la descripción de la imagen de hoy en el sitio web.");
             }
+        }
+
+        public static bool HasVideo(HtmlDocument page_document)
+        {
+            return page_document.DocumentNode.SelectSingleNode(VIDEO_SEARCH_XPATH) != null;
+        }
+
+        public static string GetVideoUrl(HtmlDocument page_document)
+        {
+            var node = page_document.DocumentNode.SelectSingleNode(VIDEO_SEARCH_XPATH);
+            if (node != null)
+            {
+                var source = node.SelectSingleNode("source[@src]");
+                if (source != null)
+                    return APOD_URL_BASE + source.GetAttributeValue("src", "");
+
+                string src = node.GetAttributeValue("src", "");
+                if (!string.IsNullOrEmpty(src))
+                    return APOD_URL_BASE + src;
+            }
+            return null;
+        }
+
+        public static string GetVideoThumbnailUrl(HtmlDocument page_document)
+        {
+            var node = page_document.DocumentNode.SelectSingleNode(VIDEO_SEARCH_XPATH);
+            if (node != null)
+            {
+                string poster = node.GetAttributeValue("poster", "");
+                if (!string.IsNullOrEmpty(poster))
+                {
+                    if (poster.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                        return poster;
+                    return APOD_URL_BASE + poster;
+                }
+            }
+            return null;
         }
 
         public static string GetImagefileNameFromURL(string image_url)

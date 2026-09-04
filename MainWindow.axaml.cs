@@ -21,6 +21,7 @@ namespace APOD_wallpapers
         private string file_name;
         private Bitmap image;
         private string fullResUrl;
+        private bool _isVideo;
         private DateTime _currentDate = DateTime.Today;
         private bool _isSettingDate;
         private CancellationTokenSource _loadCts;
@@ -47,6 +48,7 @@ namespace APOD_wallpapers
             PrevDayButton = this.FindControl<Button>("PrevDayButton");
             NextDayButton = this.FindControl<Button>("NextDayButton");
             MoreInfoLink = this.FindControl<HyperlinkButton>("MoreInfoLink");
+            VideoWebView = this.FindControl<NativeWebView>("VideoWebView");
 
             DatePicker.MinYear = new DateTimeOffset(Program.APOD_MIN_DATE);
             DatePicker.MaxYear = new DateTimeOffset(DateTime.Today);
@@ -144,20 +146,20 @@ namespace APOD_wallpapers
         
         private void DownloadTodayImage()
         {
-            LoadDate(DateTime.Today);
+            LoadByDate(DateTime.Today);
         }
 
         private void UpdateControls(bool loading)
         {
             LoadingOverlay.IsVisible = loading;
-            DownloadButton.IsEnabled = !loading;
-            SetWallpaperButton.IsEnabled = !loading;
+            DownloadButton.IsEnabled = !loading && !_isVideo;
+            SetWallpaperButton.IsEnabled = !loading && !_isVideo;
             DatePicker.IsEnabled = !loading;
             PrevDayButton.IsEnabled = !loading && _currentDate > Program.APOD_MIN_DATE;
             NextDayButton.IsEnabled = !loading && _currentDate < DateTime.Today;
         }
 
-        private async void LoadDate(DateTime date)
+        private async void LoadByDate(DateTime date)
         {
             if (date < Program.APOD_MIN_DATE || date > DateTime.Today)
             {
@@ -175,42 +177,32 @@ namespace APOD_wallpapers
             _isSettingDate = false;
             MoreInfoLink.NavigateUri = new Uri(Program.GetAPODPageURL(date));
 
+            _isVideo = false;
+            fullResUrl = null;
             UpdateControls(true);
             PreviewImage.Source = null;
+            PreviewImage.IsVisible = true;
+            VideoWebView.IsVisible = false;
             TitleText.Text = "";
             InfoText.Text = "";
-            WriteInfo($"Descargando la imagen del {date:dd/MM/yyyy}...");
+            WriteInfo($"Descargando contenido del {date:dd/MM/yyyy}...");
+
             try
             {
-                using (var client = new HttpClient())
-                {
-                    string doc_url = Program.GetAPODPageURL(date);
-                    if (Program.IsValidURL(doc_url))
-                    {
-                        HtmlDocument page = await Program.GetHTMLDocument(client, doc_url, token);
-                        token.ThrowIfCancellationRequested();
+                using var client = new HttpClient();
+                string doc_url = Program.GetAPODPageURL(date);
+                if (!Program.IsValidURL(doc_url)) return;
 
-                        string image_url = Program.APOD_URL_BASE + Program.GetImageURLFromAPOD(page);
-                        string preview_url = Program.APOD_URL_BASE + Program.GetImagePreviewURLFromAPOD(page);
-                        if (Program.IsValidURL(image_url) && Program.IsValidURL(preview_url))
-                        {
-                            TitleText.Text = "";
-                            InfoText.Text = "";
-                            SetDescriptionFromHtml(TitleText, Program.GetImageTitleFromAPOD(page));
-                            SetDescriptionFromHtml(InfoText, Program.GetImageDescriptionFromAPOD(page));
+                HtmlDocument page = await Program.GetHTMLDocument(client, doc_url, token);
+                token.ThrowIfCancellationRequested();
 
-                            image = await Program.DownloadImageParallel(client, preview_url, token);
-                            token.ThrowIfCancellationRequested();
-                            fullResUrl = image_url;
-                            file_name = Program.GetImagefileNameFromURL(image_url);
-                            if (image != null)
-                            {
-                                PreviewImage.Source = image;
-                                WriteInfo("Listo");
-                            }
-                        }
-                    }
-                }
+                SetDescriptionFromHtml(TitleText, Program.GetImageTitleFromAPOD(page));
+                SetDescriptionFromHtml(InfoText, Program.GetImageDescriptionFromAPOD(page));
+
+                if (Program.HasVideo(page))
+                    await LoadVideoAsync(client, page, token);
+                else
+                    await LoadImageAsync(client, page, token);
             }
             catch (OperationCanceledException)
             {
@@ -228,23 +220,74 @@ namespace APOD_wallpapers
             }
         }
 
+        private async Task LoadVideoAsync(HttpClient client, HtmlDocument page, CancellationToken token)
+        {
+            _isVideo = true;
+
+            string video_url = Program.GetVideoUrl(page);
+            string thumbnail_url = Program.GetVideoThumbnailUrl(page);
+            fullResUrl = null;
+            file_name = Program.GetImagefileNameFromURL(video_url);
+
+            if (Program.IsValidURL(thumbnail_url))
+            {
+                image = await Program.DownloadImageParallel(client, thumbnail_url, token);
+                token.ThrowIfCancellationRequested();
+                if (image != null)
+                    PreviewImage.Source = image;
+                PreviewImage.IsVisible = true;
+            }
+            else
+            {
+                PreviewImage.IsVisible = false;
+            }
+
+            string html =
+                "<!DOCTYPE html><html><head><meta charset='utf-8'>" +
+                "<style>html,body{margin:0;padding:0;width:100%;height:100%;background:#000;}" +
+                "video{width:100%;height:100%;object-fit:contain;}</style></head><body>" +
+                $"<video src='{video_url}' controls autoplay></video></body></html>";
+
+            VideoWebView.NavigateToString(html);
+            VideoWebView.IsVisible = true;
+
+            WriteInfo("Reproduciendo vídeo de la fecha seleccionada.");
+        }
+
+        private async Task LoadImageAsync(HttpClient client, HtmlDocument page, CancellationToken token)
+        {
+            string image_url = Program.APOD_URL_BASE + Program.GetImageURLFromAPOD(page);
+            string preview_url = Program.APOD_URL_BASE + Program.GetImagePreviewURLFromAPOD(page);
+            if (!Program.IsValidURL(image_url) || !Program.IsValidURL(preview_url)) return;
+
+            image = await Program.DownloadImageParallel(client, preview_url, token);
+            token.ThrowIfCancellationRequested();
+            fullResUrl = image_url;
+            file_name = Program.GetImagefileNameFromURL(image_url);
+            if (image != null)
+            {
+                PreviewImage.Source = image;
+                WriteInfo("Listo");
+            }
+        }
+
         private void DatePicker_SelectedDateChanged(object sender, DatePickerSelectedValueChangedEventArgs e)
         {
             if (_isSettingDate) return;
             if (e.NewDate.HasValue)
             {
-                LoadDate(e.NewDate.Value.Date);
+                LoadByDate(e.NewDate.Value.Date);
             }
         }
 
         private void PrevDayButton_Click(object sender, RoutedEventArgs e)
         {
-            LoadDate(_currentDate.AddDays(-1));
+            LoadByDate(_currentDate.AddDays(-1));
         }
 
         private void NextDayButton_Click(object sender, RoutedEventArgs e)
         {
-            LoadDate(_currentDate.AddDays(1));
+            LoadByDate(_currentDate.AddDays(1));
         }
         
         private async Task<bool> SaveImageAsync()
