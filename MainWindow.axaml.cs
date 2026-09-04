@@ -255,7 +255,7 @@ namespace APOD_wallpapers
                 }
                 catch (Exception e)
                 {
-                    WriteError("Error al guardar la iamgen: " + e.Message);
+                    WriteError("Error al guardar la imagen: " + e.Message);
                 }
                 finally
                 {
@@ -272,12 +272,16 @@ namespace APOD_wallpapers
             await SaveImageAsync();
         }
 
-        private void SetWallpaperButton_Click(object sender, RoutedEventArgs e)
+        private async void SetWallpaperButton_Click(object sender, RoutedEventArgs e)
         {
             if (!File.Exists(file_name))
             {
-                WriteError("La imagen no está guardada en el disco.");
-                return;
+                await SaveImageAsync();
+                if (!File.Exists(file_name))
+                {
+                    WriteError("La imagen no está guardada en el disco.");
+                    return;
+                }
             }
             Program.SetWallpaper(file_name);
             WriteInfo($"Fondo de pantalla establecido");
