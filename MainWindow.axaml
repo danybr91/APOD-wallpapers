@@ -117,7 +117,7 @@
         <!-- Descripción de la imagen -->
         <ScrollViewer Grid.Row="1"
                       Background="#CC1E1E1E"
-                      MaxHeight="200"
+                      Height="200"
                       VerticalScrollBarVisibility="Auto">
             <Grid RowDefinitions="Auto, Auto, Auto">
 

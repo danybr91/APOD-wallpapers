@@ -174,6 +174,9 @@ namespace APOD_wallpapers
             _isSettingDate = false;
 
             UpdateControls(true);
+            PreviewImage.Source = null;
+            TitleText.Text = "";
+            InfoText.Text = "";
             WriteInfo($"Descargando la imagen del {date:dd/MM/yyyy}...");
             try
             {
