@@ -12,6 +12,7 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using HtmlAgilityPack;
+using Avalonia.Platform.Storage;
 
 namespace APOD_wallpapers
 {
@@ -19,7 +20,6 @@ namespace APOD_wallpapers
     {
         private string file_name;
         private Bitmap image;
-        private string imageName;
         private string fullResUrl;
         private DateTime _currentDate = DateTime.Today;
         private bool _isSettingDate;
@@ -56,8 +56,13 @@ namespace APOD_wallpapers
             DatePicker.TemplateApplied += (_, e) =>
             {
                 if (e.NameScope.Find("PART_Popup") is Popup popup)
-                {
                     popup.HorizontalOffset = 64;
+
+                if (e.NameScope.Find("PART_ButtonContentGrid") is Grid grid)
+                {
+                    grid.ColumnDefinitions[0].Width = new GridLength(40, GridUnitType.Pixel);
+                    grid.ColumnDefinitions[2].Width = new GridLength(40, GridUnitType.Pixel);
+                    grid.ColumnDefinitions[4].Width = new GridLength(58, GridUnitType.Pixel);
                 }
             };
         }
@@ -241,23 +246,33 @@ namespace APOD_wallpapers
         {
             if (image == null) return false;
 
-            SaveFileDialog dialog = new SaveFileDialog
+            var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
             {
                 Title = "Save Image",
-                InitialFileName =  file_name,
-                Directory = Program.DEFAULT_DOWNLOAD_DIR,
-                Filters = { new FileDialogFilter { Name = "Image Files", Extensions = { "jpg", "jpeg", "png" } } }
-            };
+                SuggestedFileName = file_name,
+                SuggestedStartLocation = await StorageProvider.TryGetFolderFromPathAsync(Program.DEFAULT_DOWNLOAD_DIR),
+                FileTypeChoices = new[]
+                {
+                    new FilePickerFileType("Image Files") { Patterns = new[] { "*.jpg", "*.jpeg", "*.png" } }
+                }
+            });
 
-            file_name = await dialog.ShowAsync(this);
-            if (file_name != null)
+            if (file != null)
             {
+                var path = file.TryGetLocalPath();
+                if (path == null)
+                {
+                    WriteError("No se pudo obtener la ruta del archivo.");
+                    return false;
+                }
+
                 if (string.IsNullOrEmpty(fullResUrl))
                 {
                     WriteError("No hay imagen de resolución completa para guardar.");
                     return false;
                 }
 
+                file_name = path;
                 UpdateControls(true);
                 try
                 {
