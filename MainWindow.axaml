@@ -2,15 +2,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="APOD_wallpapers.MainWindow"
         Title="APOD Wallpapers"
-        MinWidth="640" MinHeight="480"
-        Width="840" Height="740"
+        MinWidth="800" MinHeight="600"
+        Width="1024" Height="768"
         RequestedThemeVariant="Dark">
-
-    <Window.Resources>
-        <!-- Padding interno horizontal del selector de fecha -->
-        <Thickness x:Key="DatePickerHostPadding">8,3,8,6</Thickness>
-        <Thickness x:Key="DatePickerHostMonthPadding">17,3,8,6</Thickness>
-    </Window.Resources>
 
     <Window.Styles>
         <Style Selector="Button">
@@ -54,8 +48,14 @@
                          DatePicker /template/ TextBlock#PART_MonthTextBlock,
                          DatePicker /template/ TextBlock#PART_YearTextBlock">
             <Setter Property="TextAlignment" Value="Center"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="8,2,8,0"/>
             <Setter Property="FontSize" Value="16"/>
         </Style>
+        <Style Selector="DatePicker /template/ TextBlock#PART_MonthTextBlock">
+            <Setter Property="Margin" Value="0,2,8,0"/>
+        </Style>
+
     </Window.Styles>
 
     <Grid RowDefinitions="*, Auto, Auto">
@@ -128,19 +128,22 @@
                                TextWrapping="Wrap"
                                TextAlignment="Center"
                                VerticalAlignment="Center"
-                               Margin="208,0,208, 0"/>
+                               Margin="160,0,160, 0"/>
                     <DatePicker x:Name="DatePicker"
                                 SelectedDateChanged="DatePicker_SelectedDateChanged"
-                                MinWidth="180"
-                                MaxWidth="200"
+                                MinWidth="138"
+                                MaxWidth="138"
+                                YearFormat="yyyy" 
+                                MonthFormat="MM" 
+                                DayFormat="dd" 
                                 HorizontalAlignment="Left"
                                 VerticalAlignment="Center"
-                                Margin="8"/>
+                                Margin="16,8,8,8"/>
                     <HyperlinkButton NavigateUri="https://apod.nasa.gov"
                                      ToolTip.Tip="Más información"
                                      HorizontalAlignment="Right"
                                      VerticalAlignment="Center"
-                                     Margin="8, 8, 12, 8"
+                                     Margin="8, 8, 24, 8"
                                      Padding="0">
                         <Path Fill="White"
                               Data="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"
@@ -150,7 +153,7 @@
 
                 <!-- Fila 2: descripción a todo el ancho -->
                 <TextBlock x:Name="InfoText" Grid.Row="1"
-                           Padding="8"
+                           Padding="16,8,16,8"
                            TextWrapping="Wrap"
                            UseLayoutRounding="False"/>
 

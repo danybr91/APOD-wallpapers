@@ -1,9 +1,11 @@
 ﻿using System;
+using System.Globalization;
 using System.IO;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Documents;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
@@ -50,6 +52,14 @@ namespace APOD_wallpapers
             _isSettingDate = true;
             DatePicker.SelectedDate = new DateTimeOffset(DateTime.Today);
             _isSettingDate = false;
+
+            DatePicker.TemplateApplied += (_, e) =>
+            {
+                if (e.NameScope.Find("PART_Popup") is Popup popup)
+                {
+                    popup.HorizontalOffset = 64;
+                }
+            };
         }
         
         private void SetStatus(string message)
@@ -66,6 +76,10 @@ namespace APOD_wallpapers
         {
             SetStatus($"ERROR: {error}");
         }
+
+        private static bool IsMonthFirst =>
+            CultureInfo.CurrentCulture.DateTimeFormat.MonthDayPattern
+                .StartsWith("M", StringComparison.OrdinalIgnoreCase);
 
         private void SetDescriptionFromHtml(TextBlock textBlock, HtmlNode htmlNode)
         {
