@@ -4,6 +4,7 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net9.0</TargetFramework>
     <RootNamespace>APOD.Console</RootNamespace>
+    <AssemblyName>apodc</AssemblyName>
     <Version>2.2.0</Version>
     <Description>Versión de consola de APOD Wallpapers.</Description>
     <DebugType>none</DebugType>

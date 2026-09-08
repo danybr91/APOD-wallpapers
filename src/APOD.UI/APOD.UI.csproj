@@ -5,6 +5,7 @@
     <OutputType Condition="$(RuntimeIdentifier.StartsWith('win'))">WinExe</OutputType>
     <TargetFramework>net9.0</TargetFramework>
     <RootNamespace>APOD.UI</RootNamespace>
+    <AssemblyName>apod</AssemblyName>
     <Version>2.2.0</Version>
     <Description>Versión gráfica (Avalonia) de APOD Wallpapers.</Description>
     <ApplicationIcon>favicon.ico</ApplicationIcon>
@@ -14,7 +15,7 @@
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <DebugType>none</DebugType>
     <DebugSymbols>false</DebugSymbols>
-    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationManifest Condition="$([MSBuild]::IsOSPlatform('Windows'))">app.manifest</ApplicationManifest>
   </PropertyGroup>
 
   <ItemGroup>
@@ -22,7 +23,7 @@
     <PackageReference Include="Avalonia" Version="12.1.2" />
     <PackageReference Include="Avalonia.Controls.WebView" Version="12.1.0" />
     <PackageReference Include="Avalonia.Desktop" Version="12.1.2" />
-    <PackageReference Include="Avalonia.Diagnostics" Version="11.3.20" />
+    <PackageReference Include="Avalonia.Diagnostics" Version="11.3.21" />
     <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.2" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.2" />
   </ItemGroup>
