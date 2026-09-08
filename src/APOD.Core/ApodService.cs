@@ -337,7 +337,21 @@ namespace APOD.Core
             }
             else if (Util.IsOsx())
             {
-                Process.Start("osascript", $"-e 'tell application \"Finder\" to set desktop picture to POSIX file \"{path}\"'");
+                // Forma de System Events (la de Finder quedó obsoleta): compatible con macOS moderno
+                // y sin depender de Xcode Command Line Tools. Requiere permiso de Automatización (una vez).
+                var psi = new ProcessStartInfo("osascript")
+                {
+                    UseShellExecute = false
+                };
+                psi.ArgumentList.Add("-e");
+                psi.ArgumentList.Add($"tell application \"System Events\" to tell every desktop to set picture to \"{path}\"");
+                var process = Process.Start(psi);
+                process.WaitForExit();
+                if (process.ExitCode != 0)
+                {
+                    throw new InvalidOperationException(
+                        "No se pudo establecer el fondo de pantalla. Verifica el permiso de Automatización (Ajustes del Sistema > Privacidad y seguridad > Automatización).");
+                }
             }
             else if (Util.IsLinux())
             {
