@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <RootNamespace>APOD.Core</RootNamespace>
+    <Version>2.2.0</Version>
+    <Description>Lógica compartida de APOD Wallpapers (descarga, parseo, fondo de pantalla).</Description>
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="HtmlAgilityPack" Version="1.13.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="APOD.Tests" />
+  </ItemGroup>
+
+</Project>

@@ -2,14 +2,15 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
+    <OutputType Condition="$(RuntimeIdentifier.StartsWith('win'))">WinExe</OutputType>
     <TargetFramework>net9.0</TargetFramework>
-    <RootNamespace>APOD_wallpapers</RootNamespace>
-    <Version>2.1.1</Version>
-    <Description>Descarga la imagen del día de Astronomy Picture of Day (si está disponible) y establece el fondo de pantalla.</Description>
+    <RootNamespace>APOD.UI</RootNamespace>
+    <Version>2.2.0</Version>
+    <Description>Versión gráfica (Avalonia) de APOD Wallpapers.</Description>
     <ApplicationIcon>favicon.ico</ApplicationIcon>
     <PackageIcon>favicon.ico</PackageIcon>
     <PublishSingleFile>true</PublishSingleFile>
-    <SelfContained>true</SelfContained>
+    <SelfContained Condition="'$(RuntimeIdentifier)' != ''">true</SelfContained>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <DebugType>none</DebugType>
     <DebugSymbols>false</DebugSymbols>
@@ -17,23 +18,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\APOD.Core\APOD.Core.csproj" />
     <PackageReference Include="Avalonia" Version="12.1.2" />
     <PackageReference Include="Avalonia.Controls.WebView" Version="12.1.0" />
     <PackageReference Include="Avalonia.Desktop" Version="12.1.2" />
     <PackageReference Include="Avalonia.Diagnostics" Version="11.3.20" />
     <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.2" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.2" />
-    <PackageReference Include="HtmlAgilityPack" Version="1.13.0" />
-    <PackageReference Include="Tmds.DBus.Protocol" Version="0.95.1" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Compile Remove="APOD.Tests/**" />
-    <None Remove="APOD.Tests/**" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <InternalsVisibleTo Include="APOD.Tests" />
   </ItemGroup>
 
   <ItemGroup>
@@ -43,11 +34,11 @@
     </None>
   </ItemGroup>
 
-  <Target Name="RemovePdbFromPublish" AfterTargets="Publish">
+  <Target Name="EnsureSingleFile" AfterTargets="Publish" Condition="'$(SelfContained)' == 'true'">
     <ItemGroup>
-      <PdbFiles Include="$(PublishDir)**\*.pdb" />
+      <ExtraFiles Include="$(PublishDir)**/*.pdb;$(PublishDir)**/*.deps.json;$(PublishDir)**/*.runtimeconfig.json" />
     </ItemGroup>
-    <Delete Files="@(PdbFiles)" />
+    <Delete Files="@(ExtraFiles)" />
   </Target>
 
 </Project>

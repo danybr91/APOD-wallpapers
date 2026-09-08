@@ -13,8 +13,9 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using HtmlAgilityPack;
 using Avalonia.Platform.Storage;
+using APOD.Core;
 
-namespace APOD_wallpapers
+namespace APOD.UI
 {
     public partial class MainWindow : Window
     {
@@ -29,6 +30,8 @@ namespace APOD_wallpapers
         public MainWindow()
         {
             InitializeComponent();
+            // Enruta los logs de ApodService a la barra de estado de la ventana.
+            Program.Logger.StatusWriter = SetStatus;
             // Descarga la imagen inicial al abrir la ventana
             DownloadTodayImage();
         }
@@ -50,7 +53,7 @@ namespace APOD_wallpapers
             MoreInfoLink = this.FindControl<HyperlinkButton>("MoreInfoLink");
             VideoWebView = this.FindControl<NativeWebView>("VideoWebView");
 
-            DatePicker.MinYear = new DateTimeOffset(Program.APOD_MIN_DATE);
+            DatePicker.MinYear = new DateTimeOffset(ApodService.APOD_MIN_DATE);
             DatePicker.MaxYear = new DateTimeOffset(DateTime.Today);
             _isSettingDate = true;
             DatePicker.SelectedDate = new DateTimeOffset(DateTime.Today);
@@ -127,7 +130,7 @@ namespace APOD_wallpapers
             Uri uri = null;
             if (!Uri.TryCreate(href, UriKind.Absolute, out uri))
             {
-                Uri.TryCreate(new Uri(Program.APOD_URL_BASE), href, out uri);
+                Uri.TryCreate(new Uri(ApodService.APOD_URL_BASE), href, out uri);
             }
             if (uri == null) return new Run(text);
 
@@ -155,13 +158,13 @@ namespace APOD_wallpapers
             DownloadButton.IsEnabled = !loading && !_isVideo;
             SetWallpaperButton.IsEnabled = !loading && !_isVideo;
             DatePicker.IsEnabled = !loading;
-            PrevDayButton.IsEnabled = !loading && _currentDate > Program.APOD_MIN_DATE;
+            PrevDayButton.IsEnabled = !loading && _currentDate > ApodService.APOD_MIN_DATE;
             NextDayButton.IsEnabled = !loading && _currentDate < DateTime.Today;
         }
 
         private async void LoadByDate(DateTime date)
         {
-            if (date < Program.APOD_MIN_DATE || date > DateTime.Today)
+            if (date < ApodService.APOD_MIN_DATE || date > DateTime.Today)
             {
                 WriteError("Fecha fuera del rango de APOD (del 16/06/1995 a hoy).");
                 return;
@@ -175,7 +178,7 @@ namespace APOD_wallpapers
             _isSettingDate = true;
             DatePicker.SelectedDate = new DateTimeOffset(date);
             _isSettingDate = false;
-            MoreInfoLink.NavigateUri = new Uri(Program.GetAPODPageURL(date));
+            MoreInfoLink.NavigateUri = new Uri(Program.Service.GetAPODPageURL(date));
 
             _isVideo = false;
             fullResUrl = null;
@@ -190,16 +193,16 @@ namespace APOD_wallpapers
             try
             {
                 using var client = new HttpClient();
-                string doc_url = Program.GetAPODPageURL(date);
-                if (!Program.IsValidURL(doc_url)) return;
+                string doc_url = Program.Service.GetAPODPageURL(date);
+                if (!Program.Service.IsValidURL(doc_url)) return;
 
-                HtmlDocument page = await Program.GetHTMLDocument(client, doc_url, token);
+                HtmlDocument page = await Program.Service.GetHTMLDocument(client, doc_url, token);
                 token.ThrowIfCancellationRequested();
 
-                SetDescriptionFromHtml(TitleText, Program.GetImageTitleFromAPOD(page));
-                SetDescriptionFromHtml(InfoText, Program.GetImageDescriptionFromAPOD(page));
+                SetDescriptionFromHtml(TitleText, Program.Service.GetImageTitleFromAPOD(page));
+                SetDescriptionFromHtml(InfoText, Program.Service.GetImageDescriptionFromAPOD(page));
 
-                if (Program.HasVideo(page))
+                if (Program.Service.HasVideo(page))
                     await LoadVideoAsync(client, page, token);
                 else
                     await LoadImageAsync(client, page, token);
@@ -224,12 +227,12 @@ namespace APOD_wallpapers
         {
             _isVideo = true;
 
-            string video_url = Program.GetVideoUrl(page);
-            string thumbnail_url = Program.GetVideoThumbnailUrl(page);
+            string video_url = Program.Service.GetVideoUrl(page);
+            string thumbnail_url = Program.Service.GetVideoThumbnailUrl(page);
             fullResUrl = null;
-            file_name = Program.GetImagefileNameFromURL(video_url);
+            file_name = Program.Service.GetImagefileNameFromURL(video_url);
 
-            if (Program.IsValidURL(thumbnail_url))
+            if (Program.Service.IsValidURL(thumbnail_url))
             {
                 image = await Program.DownloadImageParallel(client, thumbnail_url, token);
                 token.ThrowIfCancellationRequested();
@@ -256,14 +259,14 @@ namespace APOD_wallpapers
 
         private async Task LoadImageAsync(HttpClient client, HtmlDocument page, CancellationToken token)
         {
-            string image_url = Program.APOD_URL_BASE + Program.GetImageURLFromAPOD(page);
-            string preview_url = Program.APOD_URL_BASE + Program.GetImagePreviewURLFromAPOD(page);
-            if (!Program.IsValidURL(image_url) || !Program.IsValidURL(preview_url)) return;
+            string image_url = ApodService.APOD_URL_BASE + Program.Service.GetImageURLFromAPOD(page);
+            string preview_url = ApodService.APOD_URL_BASE + Program.Service.GetImagePreviewURLFromAPOD(page);
+            if (!Program.Service.IsValidURL(image_url) || !Program.Service.IsValidURL(preview_url)) return;
 
             image = await Program.DownloadImageParallel(client, preview_url, token);
             token.ThrowIfCancellationRequested();
             fullResUrl = image_url;
-            file_name = Program.GetImagefileNameFromURL(image_url);
+            file_name = Program.Service.GetImagefileNameFromURL(image_url);
             if (image != null)
             {
                 PreviewImage.Source = image;
@@ -298,7 +301,7 @@ namespace APOD_wallpapers
             {
                 Title = "Save Image",
                 SuggestedFileName = file_name,
-                SuggestedStartLocation = await StorageProvider.TryGetFolderFromPathAsync(Program.DEFAULT_DOWNLOAD_DIR),
+                SuggestedStartLocation = await StorageProvider.TryGetFolderFromPathAsync(ApodService.DefaultDownloadDir),
                 FileTypeChoices = new[]
                 {
                     new FilePickerFileType("Image Files") { Patterns = new[] { "*.jpg", "*.jpeg", "*.png" } }
@@ -326,7 +329,7 @@ namespace APOD_wallpapers
                 {
                     WriteInfo("Descargando la imagen...");
                     using var client = new HttpClient();
-                    byte[] bytes = await Program.DownloadImageParallelToBytes(client, fullResUrl);
+                    byte[] bytes = await Program.Service.DownloadImageParallelToBytes(client, fullResUrl);
                     File.WriteAllBytes(file_name, bytes);
                     WriteInfo($"Imagen guardada en {file_name}");
                 }
@@ -360,7 +363,7 @@ namespace APOD_wallpapers
                     return;
                 }
             }
-            Program.SetWallpaper(file_name);
+            Program.Service.SetWallpaper(file_name);
             WriteInfo($"Fondo de pantalla establecido");
         }
     }

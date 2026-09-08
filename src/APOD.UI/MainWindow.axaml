@@ -1,7 +1,7 @@
 ﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:web="using:Avalonia.Controls"
-        x:Class="APOD_wallpapers.MainWindow"
+        x:Class="APOD.UI.MainWindow"
         Title="APOD Wallpapers"
         MinWidth="800" MinHeight="600"
         Width="1024" Height="768"

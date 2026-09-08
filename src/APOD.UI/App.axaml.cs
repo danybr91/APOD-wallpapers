@@ -2,7 +2,7 @@
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 
-namespace APOD_wallpapers
+namespace APOD.UI
 {
     public class App : Application
     {

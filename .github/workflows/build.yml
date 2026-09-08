@@ -29,7 +29,7 @@ jobs:
 
       - name: Publish
         run: |
-          dotnet publish APOD\ wallpapers.csproj \
+          dotnet publish src/APOD.UI/APOD.UI.csproj \
             -c Release \
             -r ${{ matrix.rid }} \
             -o publish/${{ matrix.rid }}

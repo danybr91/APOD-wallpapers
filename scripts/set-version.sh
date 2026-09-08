@@ -1,11 +1,16 @@
 #!/bin/bash
 
-CSPROJ="APOD wallpapers.csproj"
+# Todos los proyectos comparten la misma versión; se sincronizan todos.
+CSPROJS=(src/APOD.Core/APOD.Core.csproj src/APOD.Console/APOD.Console.csproj src/APOD.UI/APOD.UI.csproj)
 
-if [ ! -f "$CSPROJ" ]; then
-  echo "Error: No se encontró $CSPROJ" >&2
-  exit 1
-fi
+CSPROJ="${CSPROJS[0]}"
+
+for f in "${CSPROJS[@]}"; do
+  if [ ! -f "$f" ]; then
+    echo "Error: No se encontró $f" >&2
+    exit 1
+  fi
+done
 
 OLD_VERSION=$(grep -oP '<Version>\K[^<]+' "$CSPROJ")
 
@@ -28,6 +33,8 @@ if ! [[ "$NEW_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   exit 1
 fi
 
-sed -i "s|<Version>$OLD_VERSION</Version>|<Version>$NEW_VERSION</Version>|" "$CSPROJ"
+for f in "${CSPROJS[@]}"; do
+  sed -i "s|<Version>$OLD_VERSION</Version>|<Version>$NEW_VERSION</Version>|" "$f"
+done
 
 echo "Versión cambiada: $OLD_VERSION -> $NEW_VERSION"

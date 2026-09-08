@@ -16,7 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\APOD wallpapers.csproj" />
+    <ProjectReference Include="..\APOD.Core\APOD.Core.csproj" />
   </ItemGroup>
 
 </Project>
