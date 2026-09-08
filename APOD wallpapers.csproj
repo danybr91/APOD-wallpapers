@@ -4,7 +4,7 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net9.0</TargetFramework>
     <RootNamespace>APOD_wallpapers</RootNamespace>
-    <Version>2.1.0</Version>
+    <Version>2.1.1</Version>
     <Description>Descarga la imagen del día de Astronomy Picture of Day (si está disponible) y establece el fondo de pantalla.</Description>
     <ApplicationIcon>favicon.ico</ApplicationIcon>
     <PackageIcon>favicon.ico</PackageIcon>
@@ -12,6 +12,8 @@
     <SelfContained>true</SelfContained>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
 
   <ItemGroup>
@@ -40,5 +42,12 @@
       <PackagePath></PackagePath>
     </None>
   </ItemGroup>
+
+  <Target Name="RemovePdbFromPublish" AfterTargets="Publish">
+    <ItemGroup>
+      <PdbFiles Include="$(PublishDir)**\*.pdb" />
+    </ItemGroup>
+    <Delete Files="@(PdbFiles)" />
+  </Target>
 
 </Project>

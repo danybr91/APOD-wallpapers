@@ -6,6 +6,7 @@ using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -37,74 +38,81 @@ namespace APOD_wallpapers
         
         #endregion
         
-        static async Task Main(string[] args)
+        [STAThread]
+        static int Main(string[] args)
         {
             try
             {
-                (string to_file, bool set_wallpaper, DateTime? date) = ParseArguments(args);
-
-                if (to_file == null)
-                {
-                    AppBuilder.Configure<App>()
-                        .UsePlatformDetect()
-                        .LogToTrace()
-                        .StartWithClassicDesktopLifetime(args);
-                }
-                else
-                {
-                    WriteInfo("APOD wallpaper downloader started...");
-                    string doc_url = date.HasValue ? GetAPODPageURL(date.Value) : APOD_URL_BASE + APOD_MAIN_PAGE;
-                    using (var client = new HttpClient())
-                    {
-                        WriteInfo($"Conectando con '{doc_url}' para determinar la imagen del día");
-
-                        HtmlDocument page = await GetHTMLDocument(client, doc_url);
-                        string image_url = APOD_URL_BASE + GetImageURLFromAPOD(page);
-                        if (!IsValidURL(image_url))
-                        {
-                            throw new Exception($"La URL de la imagen '{image_url}' no es válida");
-                        }
-
-                        WriteInfo($"Conectando con '{image_url}' para descargar la imagen del día");
-                        WriteInfo("Comenzando la descarga de la imagen del día...");
-                        byte[] image_bytes = await DownloadImageParallelToBytes(client, image_url);
-                        string file_path = to_file;
-                        if (Directory.Exists(file_path))
-                        {
-                            string file_name = GetImagefileNameFromURL(image_url);
-                            file_path = Path.Combine(file_path, file_name);
-                        }
-
-                        if (!IsValidFilePath(file_path))
-                        {
-                            throw new Exception($"La ruta de descarga '{file_path}' no es válida");
-                        }
-
-                        WriteInfo($"Guardando la imagen del día en '{file_path}'");
-                        File.WriteAllBytes(file_path, image_bytes);
-                        if (!CheckFileAccess(file_path, FileMode.Open, FileAccess.Read) || !IsImageFile(file_path))
-                        {
-                            throw new Exception($"El archivo '{file_path}' no es una imagen válida.");
-                        }
-
-                        if (set_wallpaper)
-                        {
-                            WriteInfo($"Cambiando el wallpaper por '{file_path}'");
-                            SetWallpaper(file_path);
-                        }
-                    }
-                }
+                MainAsync(args).GetAwaiter().GetResult();
             }
-            catch(ArgumentException e)
+            catch (ArgumentException e)
             {
                 WriteError(e.Message);
                 ShowHelp();
-                Environment.Exit(1);
-            } 
+                return 1;
+            }
             catch (Exception e)
             {
                 WriteError(e.Message);
-                Environment.Exit(1);
+                return 1;
+            }
+            return 0;
+        }
+
+        private static async Task MainAsync(string[] args)
+        {
+            (string to_file, bool set_wallpaper, DateTime? date) = ParseArguments(args);
+
+            if (to_file == null)
+            {
+                AppBuilder.Configure<App>()
+                    .UsePlatformDetect()
+                    .LogToTrace()
+                    .StartWithClassicDesktopLifetime(args);
+            }
+            else
+            {
+                WriteInfo("APOD wallpaper downloader started...");
+                string doc_url = date.HasValue ? GetAPODPageURL(date.Value) : APOD_URL_BASE + APOD_MAIN_PAGE;
+                using (var client = new HttpClient())
+                {
+                    WriteInfo($"Conectando con '{doc_url}' para determinar la imagen del día");
+
+                    HtmlDocument page = await GetHTMLDocument(client, doc_url);
+                    string image_url = APOD_URL_BASE + GetImageURLFromAPOD(page);
+                    if (!IsValidURL(image_url))
+                    {
+                        throw new Exception($"La URL de la imagen '{image_url}' no es válida");
+                    }
+
+                    WriteInfo($"Conectando con '{image_url}' para descargar la imagen del día");
+                    WriteInfo("Comenzando la descarga de la imagen del día...");
+                    byte[] image_bytes = await DownloadImageParallelToBytes(client, image_url);
+                    string file_path = to_file;
+                    if (Directory.Exists(file_path))
+                    {
+                        string file_name = GetImagefileNameFromURL(image_url);
+                        file_path = Path.Combine(file_path, file_name);
+                    }
+
+                    if (!IsValidFilePath(file_path))
+                    {
+                        throw new Exception($"La ruta de descarga '{file_path}' no es válida");
+                    }
+
+                    WriteInfo($"Guardando la imagen del día en '{file_path}'");
+                    File.WriteAllBytes(file_path, image_bytes);
+                    if (!CheckFileAccess(file_path, FileMode.Open, FileAccess.Read) || !IsImageFile(file_path))
+                    {
+                        throw new Exception($"El archivo '{file_path}' no es una imagen válida.");
+                    }
+
+                    if (set_wallpaper)
+                    {
+                        WriteInfo($"Cambiando el wallpaper por '{file_path}'");
+                        SetWallpaper(file_path);
+                    }
+                }
             }
         }
         
@@ -525,7 +533,7 @@ namespace APOD_wallpapers
         
         private static void ShowHelp()
         {
-            WriteLine("APOD Wallpapers 2.1.0:");
+            WriteLine($"APOD Wallpapers {Assembly.GetExecutingAssembly().GetName().Version?.ToString(3)}:");
             WriteLine("\tDescarga la imagen del día de Astronomy Picture of the Day y, si se indica, la establece como fondo de pantalla.");
             WriteLine("Opciones:\n");
             WriteLine("-h, --help\t\tMostrar ayuda");
