@@ -35,6 +35,17 @@ namespace APOD.UI
             // Descarga la imagen inicial al abrir la ventana
             DownloadTodayImage();
         }
+
+        protected override void OnClosing(WindowClosingEventArgs e)
+        {
+            // Detiene el WebView antes de cerrar la ventana para dar tiempo a
+            // WebView2 a liberar sus recursos sin provocar el error de Chromium
+            // "Failed to unregister class Chrome_WidgetWin_0. Error = 1412" al salir.
+            VideoWebView.Stop();
+            VideoWebView.Source = new Uri("about:blank");
+            VideoWebView.IsVisible = false;
+            base.OnClosing(e);
+        }
         
         private void InitializeComponent()
         {
