@@ -22,12 +22,6 @@ namespace APOD.UI
         [STAThread]
         static int Main(string[] args)
         {
-            // Proceso hijo lanzado por WebViewSupport para comprobar si WebKit funciona.
-            if (args.Length == 1 && args[0] == WebViewSupport.ProbeArgument)
-            {
-                return WebViewSupport.RunProbe();
-            }
-
             if (args.Length == 0)
             {
                 return LaunchGui(args);
@@ -161,6 +155,10 @@ namespace APOD.UI
             _logger.Info($"Conectando con '{doc_url}' para determinar la imagen del día");
 
             HtmlDocument page = await _service.GetHTMLDocument(client, doc_url);
+            if (!_service.HasImage(page))
+            {
+                throw new Exception($"La APOD de esa fecha no es una imagen (puede ser un vídeo). Puedes verla en '{doc_url}'");
+            }
             string image_url = _service.GetImageURLFromAPOD(page);
             if (!_service.IsValidURL(image_url))
             {

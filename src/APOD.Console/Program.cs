@@ -129,6 +129,10 @@ namespace APOD.Console
             logger.Info($"Conectando con '{doc_url}' para determinar la imagen del día");
 
             HtmlDocument page = await service.GetHTMLDocument(client, doc_url);
+            if (!service.HasImage(page))
+            {
+                throw new Exception($"La APOD de esa fecha no es una imagen (puede ser un vídeo). Puedes verla en '{doc_url}'");
+            }
             string image_url = service.GetImageURLFromAPOD(page);
             if (!service.IsValidURL(image_url))
             {

@@ -9,7 +9,6 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Documents;
 using Avalonia.Interactivity;
-using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
@@ -24,49 +23,20 @@ namespace APOD.UI
         private string file_name;
         private Bitmap image;
         private string fullResUrl;
-        private bool _isVideo;
+        private bool _hasImage;
         private DateTime _currentDate = DateTime.Today;
         private bool _isSettingDate;
         private CancellationTokenSource _loadCts;
-        // Null cuando el sistema no admite NativeWebView (ver WebViewSupport).
-        private NativeWebView VideoWebView;
         
         public MainWindow()
         {
             InitializeComponent();
-            CreateVideoWebView();
             // Enruta los logs de ApodService a la barra de estado de la ventana.
             Program.Logger.StatusWriter = SetStatus;
             // Descarga la imagen inicial al abrir la ventana
             DownloadTodayImage();
         }
 
-        protected override void OnClosing(WindowClosingEventArgs e)
-        {
-            // Detiene el WebView antes de cerrar la ventana para dar tiempo a
-            // WebView2 a liberar sus recursos sin provocar el error de Chromium
-            // "Failed to unregister class Chrome_WidgetWin_0. Error = 1412" al salir.
-            if (VideoWebView != null)
-            {
-                VideoWebView.Stop();
-                VideoWebView.Source = new Uri("about:blank");
-            }
-            VideoHost.IsVisible = false;
-            base.OnClosing(e);
-        }
-
-        private void CreateVideoWebView()
-        {
-            if (!WebViewSupport.IsSupported) return;
-
-            VideoWebView = new NativeWebView
-            {
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-                VerticalAlignment = VerticalAlignment.Stretch
-            };
-            VideoHost.Children.Add(VideoWebView);
-        }
-        
         private void InitializeComponent()
         {
             AvaloniaXamlLoader.Load(this);
@@ -82,8 +52,8 @@ namespace APOD.UI
             PrevDayButton = this.FindControl<Button>("PrevDayButton");
             NextDayButton = this.FindControl<Button>("NextDayButton");
             MoreInfoLink = this.FindControl<HyperlinkButton>("MoreInfoLink");
-            VideoHost = this.FindControl<Panel>("VideoHost");
-            VideoUnsupportedNotice = this.FindControl<Border>("VideoUnsupportedNotice");
+            NotImageNotice = this.FindControl<Border>("NotImageNotice");
+            NotImageLink = this.FindControl<HyperlinkButton>("NotImageLink");
 
             DatePicker.MinYear = new DateTimeOffset(ApodService.APOD_MIN_DATE);
             DatePicker.MaxYear = new DateTimeOffset(DateTime.Today);
@@ -200,8 +170,8 @@ namespace APOD.UI
         private void UpdateControls(bool loading)
         {
             LoadingOverlay.IsVisible = loading;
-            DownloadButton.IsEnabled = !loading && !_isVideo;
-            SetWallpaperButton.IsEnabled = !loading && !_isVideo;
+            DownloadButton.IsEnabled = !loading && _hasImage;
+            SetWallpaperButton.IsEnabled = !loading && _hasImage;
             DatePicker.IsEnabled = !loading;
             PrevDayButton.IsEnabled = !loading && _currentDate > ApodService.APOD_MIN_DATE;
             NextDayButton.IsEnabled = !loading && _currentDate < DateTime.Today;
@@ -225,13 +195,12 @@ namespace APOD.UI
             _isSettingDate = false;
             MoreInfoLink.NavigateUri = null;
 
-            _isVideo = false;
+            _hasImage = false;
             fullResUrl = null;
             UpdateControls(true);
             PreviewImage.Source = null;
             PreviewImage.IsVisible = true;
-            VideoHost.IsVisible = false;
-            VideoUnsupportedNotice.IsVisible = false;
+            NotImageNotice.IsVisible = false;
             TitleText.Text = "";
             InfoText.Text = "";
             WriteInfo($"Descargando contenido del {date:dd/MM/yyyy}...");
@@ -250,10 +219,10 @@ namespace APOD.UI
                 SetDescriptionFromHtml(TitleText, Program.Service.GetImageTitleFromAPOD(page));
                 SetDescriptionFromHtml(InfoText, Program.Service.GetImageDescriptionFromAPOD(page));
 
-                if (Program.Service.HasVideo(page))
-                    await LoadVideoAsync(client, page, token);
-                else
+                if (Program.Service.HasImage(page))
                     await LoadImageAsync(client, page, token);
+                else
+                    ShowNotImageNotice(doc_url);
             }
             catch (OperationCanceledException)
             {
@@ -271,45 +240,13 @@ namespace APOD.UI
             }
         }
 
-        private async Task LoadVideoAsync(HttpClient client, HtmlDocument page, CancellationToken token)
+        private void ShowNotImageNotice(string page_url)
         {
-            _isVideo = true;
-
-            string video_url = Program.Service.GetVideoUrl(page);
-            string thumbnail_url = Program.Service.GetVideoThumbnailUrl(page);
-            fullResUrl = null;
-            file_name = Program.Service.GetImagefileNameFromURL(video_url);
-
-            if (Program.Service.IsValidURL(thumbnail_url))
-            {
-                image = await Program.DownloadImageParallel(client, thumbnail_url, token);
-                token.ThrowIfCancellationRequested();
-                if (image != null)
-                    PreviewImage.Source = image;
-                PreviewImage.IsVisible = true;
-            }
-            else
-            {
-                PreviewImage.IsVisible = false;
-            }
-
-            if (VideoWebView == null)
-            {
-                VideoUnsupportedNotice.IsVisible = true;
-                WriteInfo("La reproducción de vídeo no está disponible en este sistema.");
-                return;
-            }
-
-            string html =
-                "<!DOCTYPE html><html><head><meta charset='utf-8'>" +
-                "<style>html,body{margin:0;padding:0;width:100%;height:100%;background:#000;}" +
-                "video{width:100%;height:100%;object-fit:contain;}</style></head><body>" +
-                $"<video src='{video_url}' controls autoplay></video></body></html>";
-
-            VideoWebView.NavigateToString(html);
-            VideoHost.IsVisible = true;
-
-            WriteInfo("Reproduciendo vídeo de la fecha seleccionada.");
+            PreviewImage.IsVisible = false;
+            NotImageLink.NavigateUri = new Uri(page_url);
+            ToolTip.SetTip(NotImageLink, page_url);
+            NotImageNotice.IsVisible = true;
+            WriteInfo("El contenido de este día no es una imagen; puedes verlo en la web.");
         }
 
         private async Task LoadImageAsync(HttpClient client, HtmlDocument page, CancellationToken token)
@@ -321,6 +258,7 @@ namespace APOD.UI
             image = await Program.DownloadImageParallel(client, preview_url, token);
             token.ThrowIfCancellationRequested();
             fullResUrl = image_url;
+            _hasImage = true;
             file_name = Program.Service.GetImagefileNameFromURL(image_url);
             if (image != null)
             {

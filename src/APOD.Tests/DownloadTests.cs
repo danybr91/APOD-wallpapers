@@ -43,7 +43,7 @@ namespace APOD.Tests
             Assert.Equal(ImageUrl, fullResUrl);
             Assert.True(_service.IsValidURL(previewUrl));
             Assert.NotEqual(fullResUrl, previewUrl);
-            Assert.False(_service.HasVideo(page));
+            Assert.True(_service.HasImage(page));
             Assert.Equal("Vaporizing Meteor Photobombs the Lacerta Nebula", _service.GetImageTitleFromAPOD(page).InnerText.Trim());
             Assert.StartsWith("Explanation:", _service.GetImageDescriptionFromAPOD(page).InnerText.Trim());
         }
@@ -59,17 +59,14 @@ namespace APOD.Tests
         }
 
         [Fact]
-        public async Task VideoPage_ExposesVideoUrl()
+        public async Task VideoPage_HasNoImage()
         {
             using var client = new HttpClient();
             string pageUrl = await _service.GetAPODPageURL(client, VideoDate);
             HtmlAgilityPack.HtmlDocument page = await _service.GetHTMLDocument(client, pageUrl);
 
-            Assert.True(_service.HasVideo(page));
-            string videoUrl = _service.GetVideoUrl(page);
-            _output.WriteLine($"Vídeo: {videoUrl}");
-            Assert.True(_service.IsValidURL(videoUrl));
-            Assert.Equal("xz_and.mp4", _service.GetImagefileNameFromURL(videoUrl));
+            Assert.False(_service.HasImage(page));
+            Assert.NotNull(_service.GetImageTitleFromAPOD(page));
         }
 
         [Fact]

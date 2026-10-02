@@ -32,7 +32,6 @@ namespace APOD.Core
         public const string IMAGE_URL_SEARCH_XPATH = MEDIA_SEARCH_XPATH + "//img[@src]";
         public const string IMAGE_TITLE_SEARCH_XPATH = HERO_SEARCH_XPATH + "//*[self::h1 or self::h2]";
         public const string IMAGE_DESCRIPTION_SEARCH_XPATH = HERO_SEARCH_XPATH + "//p[contains(@class,'media-detail-hero__description')]";
-        public const string VIDEO_SEARCH_XPATH = MEDIA_SEARCH_XPATH + "//video";
         public const int DEFAULT_PARALLEL_CONNECTIONS = 4;
         
         public static readonly DateTime APOD_MIN_DATE = new DateTime(1995, 6, 16);
@@ -233,37 +232,12 @@ namespace APOD.Core
             }
         }
 
-        public bool HasVideo(HtmlDocument page_document)
+        /// <summary>
+        /// Indica si la APOD es una imagen. Algunos días es un vídeo (MP4 o YouTube), que la app no muestra.
+        /// </summary>
+        public bool HasImage(HtmlDocument page_document)
         {
-            return page_document.DocumentNode.SelectSingleNode(VIDEO_SEARCH_XPATH) != null;
-        }
-
-        public string GetVideoUrl(HtmlDocument page_document)
-        {
-            var node = page_document.DocumentNode.SelectSingleNode(VIDEO_SEARCH_XPATH);
-            if (node != null)
-            {
-                var source = node.SelectSingleNode("source[@src]");
-                if (source != null)
-                    return ResolveURL(source.GetAttributeValue("src", ""));
-
-                string src = node.GetAttributeValue("src", "");
-                if (!string.IsNullOrEmpty(src))
-                    return ResolveURL(src);
-            }
-            return null;
-        }
-
-        public string GetVideoThumbnailUrl(HtmlDocument page_document)
-        {
-            var node = page_document.DocumentNode.SelectSingleNode(VIDEO_SEARCH_XPATH);
-            if (node != null)
-            {
-                string poster = node.GetAttributeValue("poster", "");
-                if (!string.IsNullOrEmpty(poster))
-                    return ResolveURL(poster);
-            }
-            return null;
+            return page_document.DocumentNode.SelectSingleNode(IMAGE_URL_SEARCH_XPATH) != null;
         }
 
         public string GetImagefileNameFromURL(string image_url)

@@ -66,23 +66,26 @@
             <Image Name="PreviewImage"
                    Stretch="Uniform"/>
 
-            <!-- Reproductor de video: el NativeWebView se crea desde código solo si el sistema lo admite -->
-            <Panel x:Name="VideoHost"
-                   IsVisible="False"/>
-
-            <!-- Aviso cuando el sistema no puede reproducir vídeo integrado -->
-            <Border x:Name="VideoUnsupportedNotice"
+            <!-- Aviso cuando la APOD del día no es una imagen (vídeo, YouTube...) -->
+            <Border x:Name="NotImageNotice"
                     IsVisible="False"
                     Background="#CC1E1E1E"
                     CornerRadius="6"
                     Padding="24,16"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center">
-                <TextBlock Text="La reproducción de vídeo no está disponible en este sistema."
-                           Foreground="#DDDDDD"
-                           FontSize="14"
-                           TextWrapping="Wrap"
-                           TextAlignment="Center"/>
+                <StackPanel Spacing="8">
+                    <TextBlock Text="El contenido de este día no es una imagen."
+                               Foreground="#DDDDDD"
+                               FontSize="14"
+                               TextWrapping="Wrap"
+                               TextAlignment="Center"/>
+                    <HyperlinkButton x:Name="NotImageLink"
+                                     Classes="link"
+                                     FontSize="14"
+                                     HorizontalAlignment="Center"
+                                     Content="Ver en la web de APOD"/>
+                </StackPanel>
             </Border>
 
             <!-- Overlay de carga -->
