@@ -56,6 +56,8 @@ namespace APOD.UI
             MoreInfoLink = this.FindControl<HyperlinkButton>("MoreInfoLink");
             NotImageNotice = this.FindControl<Border>("NotImageNotice");
             NotImageLink = this.FindControl<HyperlinkButton>("NotImageLink");
+            TitleSkeleton = this.FindControl<Border>("TitleSkeleton");
+            InfoSkeleton = this.FindControl<StackPanel>("InfoSkeleton");
 
             DatePicker.MinYear = new DateTimeOffset(ApodService.APOD_MIN_DATE);
             DatePicker.MaxYear = new DateTimeOffset(DateTime.Today);
@@ -179,6 +181,13 @@ namespace APOD.UI
             NextDayButton.IsEnabled = !loading && _currentDate < DateTime.Today;
         }
 
+        // Muestra las barras animadas en lugar del título y la descripción mientras se cargan.
+        private void SetTextLoading(bool loading)
+        {
+            TitleSkeleton.IsVisible = loading;
+            InfoSkeleton.IsVisible = loading;
+        }
+
         private async void LoadByDate(DateTime date)
         {
             if (date < ApodService.APOD_MIN_DATE || date > DateTime.Today)
@@ -205,6 +214,7 @@ namespace APOD.UI
             NotImageNotice.IsVisible = false;
             TitleText.Text = "";
             InfoText.Text = "";
+            SetTextLoading(true);
             WriteInfo($"Descargando contenido del {date:dd/MM/yyyy}...");
 
             try
@@ -220,6 +230,7 @@ namespace APOD.UI
 
                 SetDescriptionFromHtml(TitleText, _service.GetImageTitleFromAPOD(page));
                 SetDescriptionFromHtml(InfoText, _service.GetImageDescriptionFromAPOD(page));
+                SetTextLoading(false);
 
                 if (_service.HasImage(page))
                     await LoadImageAsync(client, page, token);
@@ -237,6 +248,7 @@ namespace APOD.UI
             {
                 if (!token.IsCancellationRequested)
                 {
+                    SetTextLoading(false);
                     UpdateControls(false);
                 }
             }
