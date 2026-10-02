@@ -7,6 +7,7 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using HtmlAgilityPack;
@@ -15,13 +16,23 @@ namespace APOD.Core
 {
     public class ApodService
     {
-        public const string APOD_URL_BASE = "https://apod.nasa.gov/apod/";
-        public const string APOD_MAIN_PAGE = "astropix.html";
-        public const string IMAGE_URL_SEARCH_XPATH = "//center//a[starts-with(@href,'image')]";
-        public const string IMAGE_PREVIEW_URL_SEARCH_XPATH = "//center//a[starts-with(@href,'image')]/img";
-        public const string IMAGE_TITLE_SEARCH_XPATH = "//center[2]";
-        public const string IMAGE_DESCRIPTION_SEARCH_XPATH = "//body/p[1]";
-        public const string VIDEO_SEARCH_XPATH = "//center//video";
+        // Desde 2026 apod.nasa.gov redirige todo (páginas e imágenes) a science.nasa.gov/apod/.
+        public const string APOD_URL_BASE = "https://science.nasa.gov/";
+        public const string APOD_MAIN_PAGE = "apod/";
+        // API REST de WordPress: cada APOD es un "image-article" de la categoría APOD.
+        public const string APOD_API_URL = APOD_URL_BASE + "wp-json/wp/v2/image-article";
+        public const int APOD_CATEGORY_ID = 22766;
+        // Las imágenes se sirven redimensionadas desde "dynamicimage" (sin soporte de rangos);
+        // el original está en "content/dam" con la misma ruta.
+        public const string DYNAMIC_IMAGE_PATH = "/dynamicimage/assets/";
+        public const string ORIGINAL_IMAGE_PATH = "/content/dam/";
+        public const string IMAGE_PREVIEW_QUERY = "?w=1600&h=1600&fit=clip";
+        public const string HERO_SEARCH_XPATH = "//div[contains(@class,'wp-block-nasa-blocks-media-detail-hero')]";
+        public const string MEDIA_SEARCH_XPATH = HERO_SEARCH_XPATH + "//div[contains(@class,'media-detail-hero__media')]";
+        public const string IMAGE_URL_SEARCH_XPATH = MEDIA_SEARCH_XPATH + "//img[@src]";
+        public const string IMAGE_TITLE_SEARCH_XPATH = HERO_SEARCH_XPATH + "//*[self::h1 or self::h2]";
+        public const string IMAGE_DESCRIPTION_SEARCH_XPATH = HERO_SEARCH_XPATH + "//p[contains(@class,'media-detail-hero__description')]";
+        public const string VIDEO_SEARCH_XPATH = MEDIA_SEARCH_XPATH + "//video";
         public const int DEFAULT_PARALLEL_CONNECTIONS = 4;
         
         public static readonly DateTime APOD_MIN_DATE = new DateTime(1995, 6, 16);
@@ -50,9 +61,41 @@ namespace APOD.Core
             return Uri.TryCreate(URL, UriKind.Absolute, out uri_result) && ( uri_result.Scheme == Uri.UriSchemeHttp || uri_result.Scheme == Uri.UriSchemeHttps);
         }
 
-        public string GetAPODPageURL(DateTime date)
+        public string GetAPODMainPageURL()
         {
-            return $"{APOD_URL_BASE}ap{date:yyMMdd}.html";
+            return APOD_URL_BASE + APOD_MAIN_PAGE;
+        }
+
+        /// <summary>
+        /// Resuelve la URL de la página de una fecha. Las páginas nuevas llevan el título en la URL
+        /// (p. ej. image-article/apod-2026-august-3-...), así que hay que consultarla en la API.
+        /// </summary>
+        public async Task<string> GetAPODPageURL(HttpClient client, DateTime date, CancellationToken token = default, int timeout = 30000)
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(token);
+            cts.CancelAfter(timeout);
+
+            // "after" y "before" son exclusivos en la API de WordPress.
+            string url = $"{APOD_API_URL}?categories={APOD_CATEGORY_ID}" +
+                         $"&after={date.Date.AddSeconds(-1):yyyy-MM-ddTHH:mm:ss}" +
+                         $"&before={date.Date.AddDays(1):yyyy-MM-ddTHH:mm:ss}" +
+                         "&_fields=slug,link&per_page=10";
+
+            var response = await client.GetAsync(url, cts.Token);
+            response.EnsureSuccessStatusCode();
+            using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cts.Token));
+
+            string expectedSlug = $"apod-{date:yyyy}-{date.ToString("MMMM", CultureInfo.InvariantCulture).ToLowerInvariant()}-{date.Day}-";
+            string fallback = null;
+            foreach (var post in json.RootElement.EnumerateArray())
+            {
+                string link = post.GetProperty("link").GetString();
+                if (post.GetProperty("slug").GetString()?.StartsWith(expectedSlug) == true)
+                    return link;
+                fallback ??= link;
+            }
+
+            return fallback ?? throw new NodeNotFoundException($"No hay APOD publicada para el {date:dd/MM/yyyy}.");
         }
 
         public bool IsValidAPODDate(DateTime date)
@@ -114,7 +157,8 @@ namespace APOD.Core
             cts.CancelAfter(timeout);
             
             var response = await client.GetAsync(url, cts.Token);
-            var page_contents = await response.Content.ReadAsStringAsync();
+            response.EnsureSuccessStatusCode();
+            var page_contents = await response.Content.ReadAsStringAsync(cts.Token);
             HtmlDocument page_document = new HtmlDocument();
             page_document.LoadHtml(page_contents);
             return page_document;
@@ -122,10 +166,33 @@ namespace APOD.Core
 
         public string GetImageURLFromAPOD(HtmlDocument page_document)
         {
+            string src = GetImageSourceFromAPOD(page_document);
+            var uri = new Uri(src);
+            string path = uri.AbsolutePath;
+            if (path.StartsWith(DYNAMIC_IMAGE_PATH))
+            {
+                path = ORIGINAL_IMAGE_PATH + path.Substring(DYNAMIC_IMAGE_PATH.Length);
+            }
+            return uri.GetLeftPart(UriPartial.Authority) + path;
+        }
+
+        public string GetImagePreviewURLFromAPOD(HtmlDocument page_document)
+        {
+            string src = GetImageSourceFromAPOD(page_document);
+            var uri = new Uri(src);
+            if (uri.AbsolutePath.StartsWith(DYNAMIC_IMAGE_PATH))
+            {
+                return uri.GetLeftPart(UriPartial.Path) + IMAGE_PREVIEW_QUERY;
+            }
+            return src;
+        }
+
+        private string GetImageSourceFromAPOD(HtmlDocument page_document)
+        {
             var node = page_document.DocumentNode.SelectSingleNode(IMAGE_URL_SEARCH_XPATH);
             if (node != null)
             {
-                return node.GetAttributeValue("href", "");
+                return ResolveURL(HtmlEntity.DeEntitize(node.GetAttributeValue("src", "")));
             }
             else
             {
@@ -133,17 +200,11 @@ namespace APOD.Core
             }
         }
 
-        public string GetImagePreviewURLFromAPOD(HtmlDocument page_document)
+        public string ResolveURL(string url)
         {
-            var node = page_document.DocumentNode.SelectSingleNode(IMAGE_PREVIEW_URL_SEARCH_XPATH);
-            if (node != null)
-            {
-                return node.GetAttributeValue("src", "");
-            }
-            else
-            {
-                throw new NodeNotFoundException("No se ha encontrado la imagen de vista previa en el sitio web.");
-            }
+            if (string.IsNullOrEmpty(url))
+                return null;
+            return Uri.TryCreate(new Uri(APOD_URL_BASE), url, out Uri result) ? result.ToString() : null;
         }
 
         public HtmlNode GetImageTitleFromAPOD(HtmlDocument page_document)
@@ -184,11 +245,11 @@ namespace APOD.Core
             {
                 var source = node.SelectSingleNode("source[@src]");
                 if (source != null)
-                    return APOD_URL_BASE + source.GetAttributeValue("src", "");
+                    return ResolveURL(source.GetAttributeValue("src", ""));
 
                 string src = node.GetAttributeValue("src", "");
                 if (!string.IsNullOrEmpty(src))
-                    return APOD_URL_BASE + src;
+                    return ResolveURL(src);
             }
             return null;
         }
@@ -200,18 +261,16 @@ namespace APOD.Core
             {
                 string poster = node.GetAttributeValue("poster", "");
                 if (!string.IsNullOrEmpty(poster))
-                {
-                    if (poster.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-                        return poster;
-                    return APOD_URL_BASE + poster;
-                }
+                    return ResolveURL(poster);
             }
             return null;
         }
 
         public string GetImagefileNameFromURL(string image_url)
         {
-            string[] tokens = image_url.ToString().Split("/");
+            if (Uri.TryCreate(image_url, UriKind.Absolute, out Uri uri))
+                image_url = uri.AbsolutePath;
+            string[] tokens = image_url.Split("/");
             if (tokens.Length > 0)
             {
                 return tokens[tokens.Length - 1];
@@ -246,9 +305,11 @@ namespace APOD.Core
                     using var probeResponse = await client.SendAsync(probeRequest, HttpCompletionOption.ResponseHeadersRead, probeCts.Token);
                     probeResponse.EnsureSuccessStatusCode();
 
+                    // Sin soporte de rangos (p. ej. imágenes redimensionadas) la respuesta ya trae la imagen completa.
                     if (probeResponse.StatusCode != HttpStatusCode.PartialContent)
                     {
-                        throw new HttpRequestException($"El servidor no soporta descargas por rango (HTTP {(int)probeResponse.StatusCode} en vez de 206).");
+                        _log.Info($"El servidor no soporta descargas por rango (HTTP {(int)probeResponse.StatusCode}); descarga secuencial.");
+                        return await probeResponse.Content.ReadAsByteArrayAsync(probeCts.Token);
                     }
 
                     var contentRange = probeResponse.Content.Headers.ContentRange;

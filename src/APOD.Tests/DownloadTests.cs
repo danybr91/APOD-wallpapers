@@ -12,8 +12,9 @@ namespace APOD.Tests
 {
     public class DownloadTests
     {
-        private const string ImageUrl = "https://apod.nasa.gov/apod/image/2608/MeteorGecko_Burnett_4944.jpg";
-        private const string PageUrl = "https://apod.nasa.gov/apod/ap260803.html";
+        private const string ImageUrl = "https://assets.science.nasa.gov/content/dam/science/cds/apod/apod/2026/august/MeteorGecko_Burnett_4944.jpg";
+        private static readonly DateTime ImageDate = new DateTime(2026, 8, 3);
+        private static readonly DateTime VideoDate = new DateTime(2026, 9, 9);
         private const int Iterations = 1;
         private const int ParallelConnections = 4; //Por cortesia al servidor, mejor dejarlo en un equilibro.
 
@@ -29,17 +30,60 @@ namespace APOD.Tests
         public async Task Page_ExposesDistinctFullResAndPreviewUrls()
         {
             using var client = new HttpClient();
-            HtmlAgilityPack.HtmlDocument page = await _service.GetHTMLDocument(client, PageUrl);
+            string pageUrl = await _service.GetAPODPageURL(client, ImageDate);
+            HtmlAgilityPack.HtmlDocument page = await _service.GetHTMLDocument(client, pageUrl);
 
-            string fullResUrl = ApodService.APOD_URL_BASE + _service.GetImageURLFromAPOD(page);
-            string previewUrl = ApodService.APOD_URL_BASE + _service.GetImagePreviewURLFromAPOD(page);
+            string fullResUrl = _service.GetImageURLFromAPOD(page);
+            string previewUrl = _service.GetImagePreviewURLFromAPOD(page);
 
+            _output.WriteLine($"Página:   {pageUrl}");
             _output.WriteLine($"Full-res: {fullResUrl}");
             _output.WriteLine($"Preview:  {previewUrl}");
 
-            Assert.True(_service.IsValidURL(fullResUrl));
+            Assert.Equal(ImageUrl, fullResUrl);
             Assert.True(_service.IsValidURL(previewUrl));
             Assert.NotEqual(fullResUrl, previewUrl);
+            Assert.False(_service.HasVideo(page));
+            Assert.Equal("Vaporizing Meteor Photobombs the Lacerta Nebula", _service.GetImageTitleFromAPOD(page).InnerText.Trim());
+            Assert.StartsWith("Explanation:", _service.GetImageDescriptionFromAPOD(page).InnerText.Trim());
+        }
+
+        [Fact]
+        public async Task MainPage_ExposesImageOrVideo()
+        {
+            using var client = new HttpClient();
+            HtmlAgilityPack.HtmlDocument page = await _service.GetHTMLDocument(client, _service.GetAPODMainPageURL());
+
+            _output.WriteLine($"Título: {_service.GetImageTitleFromAPOD(page).InnerText.Trim()}");
+            Assert.NotNull(_service.GetImageDescriptionFromAPOD(page));
+        }
+
+        [Fact]
+        public async Task VideoPage_ExposesVideoUrl()
+        {
+            using var client = new HttpClient();
+            string pageUrl = await _service.GetAPODPageURL(client, VideoDate);
+            HtmlAgilityPack.HtmlDocument page = await _service.GetHTMLDocument(client, pageUrl);
+
+            Assert.True(_service.HasVideo(page));
+            string videoUrl = _service.GetVideoUrl(page);
+            _output.WriteLine($"Vídeo: {videoUrl}");
+            Assert.True(_service.IsValidURL(videoUrl));
+            Assert.Equal("xz_and.mp4", _service.GetImagefileNameFromURL(videoUrl));
+        }
+
+        [Fact]
+        public async Task FirstApod_ResolvesPage()
+        {
+            using var client = new HttpClient();
+            string pageUrl = await _service.GetAPODPageURL(client, ApodService.APOD_MIN_DATE);
+            HtmlAgilityPack.HtmlDocument page = await _service.GetHTMLDocument(client, pageUrl);
+
+            string fullResUrl = _service.GetImageURLFromAPOD(page);
+            _output.WriteLine($"Página:   {pageUrl}");
+            _output.WriteLine($"Full-res: {fullResUrl}");
+            Assert.Contains("apod-1995-june-16-", pageUrl);
+            Assert.True(_service.IsValidURL(fullResUrl));
         }
 
         [Fact]

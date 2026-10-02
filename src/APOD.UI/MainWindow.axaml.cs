@@ -2,6 +2,7 @@
 using System.Globalization;
 using System.IO;
 using System.Net.Http;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
@@ -131,15 +132,22 @@ namespace APOD.UI
             {
                 if (node.Name == "#text")
                 {
-                    inlines.Add(new Run(node.InnerText.Replace("\n", " ")));
+                    string text = CleanText(node);
+                    if (node == htmlNode.FirstChild) text = text.TrimStart();
+                    if (node == htmlNode.LastChild) text = text.TrimEnd();
+                    if (text.Length > 0) inlines.Add(new Run(text));
                 }
-                else if (node.Name == "b")
+                else if (node.Name == "b" || node.Name == "strong")
                 {
-                    inlines.Add(new Run { Text = node.InnerText.Replace("\n", " "), FontWeight = FontWeight.Bold });
+                    inlines.Add(new Run { Text = CleanText(node), FontWeight = FontWeight.Bold });
                 }
-                else if (node.Name == "i")
+                else if (node.Name == "i" || node.Name == "em")
                 {
-                    inlines.Add(new Run { Text = node.InnerText.Replace("\n", " "), FontStyle = FontStyle.Italic });
+                    inlines.Add(new Run { Text = CleanText(node), FontStyle = FontStyle.Italic });
+                }
+                else if (node.Name == "br")
+                {
+                    inlines.Add(new LineBreak());
                 }
                 else if (node.Name == "a")
                 {
@@ -152,11 +160,17 @@ namespace APOD.UI
             textBlock.Inlines = inlines;
         }
 
+        // Decodifica entidades (&#8217;...) y colapsa la indentación del HTML en espacios simples.
+        private static string CleanText(HtmlNode node)
+        {
+            return Regex.Replace(HtmlEntity.DeEntitize(node.InnerText), @"\s+", " ");
+        }
+
         private Inline CreateLinkInline(HtmlNode node)
         {
-            string href = node.GetAttributeValue("href", "");
-            string text = node.InnerText.Replace("\n", " ");
-            if (string.IsNullOrEmpty(text)) return null;
+            string href = HtmlEntity.DeEntitize(node.GetAttributeValue("href", ""));
+            string text = CleanText(node);
+            if (string.IsNullOrWhiteSpace(text)) return null;
 
             Uri uri = null;
             if (!Uri.TryCreate(href, UriKind.Absolute, out uri))
@@ -209,7 +223,7 @@ namespace APOD.UI
             _isSettingDate = true;
             DatePicker.SelectedDate = new DateTimeOffset(date);
             _isSettingDate = false;
-            MoreInfoLink.NavigateUri = new Uri(Program.Service.GetAPODPageURL(date));
+            MoreInfoLink.NavigateUri = null;
 
             _isVideo = false;
             fullResUrl = null;
@@ -225,8 +239,10 @@ namespace APOD.UI
             try
             {
                 using var client = new HttpClient();
-                string doc_url = Program.Service.GetAPODPageURL(date);
+                string doc_url = await Program.Service.GetAPODPageURL(client, date, token);
+                token.ThrowIfCancellationRequested();
                 if (!Program.Service.IsValidURL(doc_url)) return;
+                MoreInfoLink.NavigateUri = new Uri(doc_url);
 
                 HtmlDocument page = await Program.Service.GetHTMLDocument(client, doc_url, token);
                 token.ThrowIfCancellationRequested();
@@ -298,8 +314,8 @@ namespace APOD.UI
 
         private async Task LoadImageAsync(HttpClient client, HtmlDocument page, CancellationToken token)
         {
-            string image_url = ApodService.APOD_URL_BASE + Program.Service.GetImageURLFromAPOD(page);
-            string preview_url = ApodService.APOD_URL_BASE + Program.Service.GetImagePreviewURLFromAPOD(page);
+            string image_url = Program.Service.GetImageURLFromAPOD(page);
+            string preview_url = Program.Service.GetImagePreviewURLFromAPOD(page);
             if (!Program.Service.IsValidURL(image_url) || !Program.Service.IsValidURL(preview_url)) return;
 
             image = await Program.DownloadImageParallel(client, preview_url, token);

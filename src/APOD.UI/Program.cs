@@ -157,11 +157,11 @@ namespace APOD.UI
         private static async Task DownloadAndSaveAsync(HttpClient client, DateTime? date, string to_file, bool set_wallpaper)
         {
             _logger.Info("APOD wallpaper downloader started...");
-            string doc_url = date.HasValue ? _service.GetAPODPageURL(date.Value) : ApodService.APOD_URL_BASE + ApodService.APOD_MAIN_PAGE;
+            string doc_url = date.HasValue ? await _service.GetAPODPageURL(client, date.Value) : _service.GetAPODMainPageURL();
             _logger.Info($"Conectando con '{doc_url}' para determinar la imagen del día");
 
             HtmlDocument page = await _service.GetHTMLDocument(client, doc_url);
-            string image_url = ApodService.APOD_URL_BASE + _service.GetImageURLFromAPOD(page);
+            string image_url = _service.GetImageURLFromAPOD(page);
             if (!_service.IsValidURL(image_url))
             {
                 throw new Exception($"La URL de la imagen '{image_url}' no es válida");
