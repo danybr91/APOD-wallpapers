@@ -1,10 +1,8 @@
 using System;
 using System.IO;
 using System.Net.Http;
-using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
-using Avalonia.Media.Imaging;
 using HtmlAgilityPack;
 using APOD.Core;
 
@@ -14,10 +12,6 @@ namespace APOD.UI
     {
         private static readonly UiLogger _logger = new UiLogger();
         private static readonly ApodService _service = new ApodService(_logger);
-
-        public static ApodService Service => _service;
-
-        public static UiLogger Logger => _logger;
 
         [STAThread]
         static int Main(string[] args)
@@ -32,7 +26,7 @@ namespace APOD.UI
 
         private static int LaunchGui(string[] args)
         {
-            AppBuilder.Configure<App>()
+            AppBuilder.Configure(() => new App(_service, _logger))
                 .UsePlatformDetect()
                 .LogToTrace()
                 .StartWithClassicDesktopLifetime(args);
@@ -193,25 +187,5 @@ namespace APOD.UI
                 _service.SetWallpaper(file_path);
             }
         }
-
-        #region Bitmap wrappers
-
-        public static async Task<Bitmap> DownloadImage(HttpClient client, string url, CancellationToken token = default, int timeout = 30000)
-        {
-            var bytes = await _service.DownloadImageToBytes(client, url, token, timeout);
-            using var memoryStream = new MemoryStream(bytes, writable: false);
-
-            return new Bitmap(memoryStream);
-        }
-
-        public static async Task<Bitmap> DownloadImageParallel(HttpClient client, string url, CancellationToken token = default, int timeout = 30000, int maxConnections = ApodService.DEFAULT_PARALLEL_CONNECTIONS)
-        {
-            var bytes = await _service.DownloadImageParallelToBytes(client, url, token, timeout, maxConnections);
-            using var memoryStream = new MemoryStream(bytes, writable: false);
-
-            return new Bitmap(memoryStream);
-        }
-
-        #endregion
     }
 }

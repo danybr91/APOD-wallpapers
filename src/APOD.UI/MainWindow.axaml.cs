@@ -27,12 +27,14 @@ namespace APOD.UI
         private DateTime _currentDate = DateTime.Today;
         private bool _isSettingDate;
         private CancellationTokenSource _loadCts;
+        private readonly ApodService _service;
         
-        public MainWindow()
+        public MainWindow(ApodService service, UiLogger logger)
         {
+            _service = service;
             InitializeComponent();
             // Enruta los logs de ApodService a la barra de estado de la ventana.
-            Program.Logger.StatusWriter = SetStatus;
+            logger.StatusWriter = SetStatus;
             // Descarga la imagen inicial al abrir la ventana
             DownloadTodayImage();
         }
@@ -208,18 +210,18 @@ namespace APOD.UI
             try
             {
                 using var client = new HttpClient();
-                string doc_url = await Program.Service.GetAPODPageURL(client, date, token);
+                string doc_url = await _service.GetAPODPageURL(client, date, token);
                 token.ThrowIfCancellationRequested();
-                if (!Program.Service.IsValidURL(doc_url)) return;
+                if (!_service.IsValidURL(doc_url)) return;
                 MoreInfoLink.NavigateUri = new Uri(doc_url);
 
-                HtmlDocument page = await Program.Service.GetHTMLDocument(client, doc_url, token);
+                HtmlDocument page = await _service.GetHTMLDocument(client, doc_url, token);
                 token.ThrowIfCancellationRequested();
 
-                SetDescriptionFromHtml(TitleText, Program.Service.GetImageTitleFromAPOD(page));
-                SetDescriptionFromHtml(InfoText, Program.Service.GetImageDescriptionFromAPOD(page));
+                SetDescriptionFromHtml(TitleText, _service.GetImageTitleFromAPOD(page));
+                SetDescriptionFromHtml(InfoText, _service.GetImageDescriptionFromAPOD(page));
 
-                if (Program.Service.HasImage(page))
+                if (_service.HasImage(page))
                     await LoadImageAsync(client, page, token);
                 else
                     ShowNotImageNotice(doc_url);
@@ -251,20 +253,27 @@ namespace APOD.UI
 
         private async Task LoadImageAsync(HttpClient client, HtmlDocument page, CancellationToken token)
         {
-            string image_url = Program.Service.GetImageURLFromAPOD(page);
-            string preview_url = Program.Service.GetImagePreviewURLFromAPOD(page);
-            if (!Program.Service.IsValidURL(image_url) || !Program.Service.IsValidURL(preview_url)) return;
+            string image_url = _service.GetImageURLFromAPOD(page);
+            string preview_url = _service.GetImagePreviewURLFromAPOD(page);
+            if (!_service.IsValidURL(image_url) || !_service.IsValidURL(preview_url)) return;
 
-            image = await Program.DownloadImageParallel(client, preview_url, token);
+            image = await DownloadBitmap(client, preview_url, token);
             token.ThrowIfCancellationRequested();
             fullResUrl = image_url;
             _hasImage = true;
-            file_name = Program.Service.GetImagefileNameFromURL(image_url);
+            file_name = _service.GetImagefileNameFromURL(image_url);
             if (image != null)
             {
                 PreviewImage.Source = image;
                 WriteInfo("Listo");
             }
+        }
+
+        private async Task<Bitmap> DownloadBitmap(HttpClient client, string url, CancellationToken token)
+        {
+            var bytes = await _service.DownloadImageParallelToBytes(client, url, token);
+            using var memoryStream = new MemoryStream(bytes, writable: false);
+            return new Bitmap(memoryStream);
         }
 
         private void DatePicker_SelectedDateChanged(object sender, DatePickerSelectedValueChangedEventArgs e)
@@ -322,7 +331,7 @@ namespace APOD.UI
                 {
                     WriteInfo("Descargando la imagen...");
                     using var client = new HttpClient();
-                    byte[] bytes = await Program.Service.DownloadImageParallelToBytes(client, fullResUrl);
+                    byte[] bytes = await _service.DownloadImageParallelToBytes(client, fullResUrl);
                     File.WriteAllBytes(file_name, bytes);
                     WriteInfo($"Imagen guardada en {file_name}");
                 }
@@ -356,7 +365,7 @@ namespace APOD.UI
                     return;
                 }
             }
-            Program.Service.SetWallpaper(file_name);
+            _service.SetWallpaper(file_name);
             WriteInfo($"Fondo de pantalla establecido");
         }
     }
