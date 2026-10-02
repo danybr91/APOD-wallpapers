@@ -7,10 +7,14 @@
     <Description>Lógica compartida de APOD Wallpapers (descarga, parseo, fondo de pantalla).</Description>
     <DebugType>none</DebugType>
     <DebugSymbols>false</DebugSymbols>
+    <!-- El código generado por LibraryImport (P/Invoke de Windows) usa punteros. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="HtmlAgilityPack" Version="1.13.0" />
+    <!-- Misma versión que trae Avalonia.FreeDesktop; se usa para el portal de fondo de pantalla en Linux. -->
+    <PackageReference Include="Tmds.DBus.Protocol" Version="0.94.1" />
   </ItemGroup>
 
   <ItemGroup>

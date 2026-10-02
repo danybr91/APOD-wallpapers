@@ -1,12 +1,11 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
-using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -14,50 +13,58 @@ using HtmlAgilityPack;
 
 namespace APOD.Core
 {
+    [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Los métodos se mantienen como miembros de instancia del servicio.")]
     public class ApodService
     {
         // Desde 2026 apod.nasa.gov redirige todo (páginas e imágenes) a science.nasa.gov/apod/.
+        // Raíz del sitio: base de la API y de la resolución de URLs relativas (ResolveURL).
         public const string APOD_URL_BASE = "https://science.nasa.gov/";
+        // Portada de APOD (la del día), relativa a APOD_URL_BASE.
         public const string APOD_MAIN_PAGE = "apod/";
         // API REST de WordPress: cada APOD es un "image-article" de la categoría APOD.
+        // Se usa para averiguar la URL de la página de una fecha, ya que lleva el título en el slug.
         public const string APOD_API_URL = APOD_URL_BASE + "wp-json/wp/v2/image-article";
+        // Id de la categoría APOD en WordPress; filtra los image-article que no son APOD.
         public const int APOD_CATEGORY_ID = 22766;
         // Las imágenes se sirven redimensionadas desde "dynamicimage" (sin soporte de rangos);
         // el original está en "content/dam" con la misma ruta.
+        // Prefijo de la ruta de la imagen redimensionada que aparece en el <img> de la página.
         public const string DYNAMIC_IMAGE_PATH = "/dynamicimage/assets/";
+        // Prefijo por el que se sustituye DYNAMIC_IMAGE_PATH para descargar la imagen original.
         public const string ORIGINAL_IMAGE_PATH = "/content/dam/";
+        // Parámetros de "dynamicimage" para la vista previa: máx. 1600x1600 conservando proporción.
         public const string IMAGE_PREVIEW_QUERY = "?w=1600&h=1600&fit=clip";
+        // Bloque de cabecera de la página de una APOD; contiene imagen, título y descripción.
         public const string HERO_SEARCH_XPATH = "//div[contains(@class,'wp-block-nasa-blocks-media-detail-hero')]";
+        // Contenedor del medio (imagen o vídeo) dentro de la cabecera.
         public const string MEDIA_SEARCH_XPATH = HERO_SEARCH_XPATH + "//div[contains(@class,'media-detail-hero__media')]";
+        // <img> de la APOD. Si no existe, ese día es un vídeo (ver HasImage).
         public const string IMAGE_URL_SEARCH_XPATH = MEDIA_SEARCH_XPATH + "//img[@src]";
+        // Título de la APOD: primer h1 o h2 dentro de la cabecera.
         public const string IMAGE_TITLE_SEARCH_XPATH = HERO_SEARCH_XPATH + "//*[self::h1 or self::h2]";
+        // Párrafo con la explicación de la APOD.
         public const string IMAGE_DESCRIPTION_SEARCH_XPATH = HERO_SEARCH_XPATH + "//p[contains(@class,'media-detail-hero__description')]";
+        // Conexiones simultáneas por defecto en la descarga por rangos (DownloadImageParallelToBytes).
         public const int DEFAULT_PARALLEL_CONNECTIONS = 4;
-        
-        public static readonly DateTime APOD_MIN_DATE = new DateTime(1995, 6, 16);
-        
+
+        // Primera APOD publicada; límite inferior de las fechas válidas.
+        public static readonly DateTime APOD_MIN_DATE = new(1995, 6, 16);
+
         public static string DefaultDownloadDir { get; } = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
 
         private readonly ILog _log;
 
+        private readonly IOsService _osService;
+
         public ApodService(ILog log)
         {
             _log = log ?? throw new ArgumentNullException(nameof(log));
+            _osService = Util.GetOsService();
         }
-        
-        #region P/Invoke declarations
-        
-        [DllImport("User32", CharSet = CharSet.Auto)]
-        private static extern int SystemParametersInfo(int uiAction, int uiParam, string pvParam, uint fWinIni);
-        
-        #endregion
 
-        #region Public API
-
-        public bool IsValidURL(string URL)
+        public static bool IsValidURL(string URL)
         {
-            Uri uri_result;
-            return Uri.TryCreate(URL, UriKind.Absolute, out uri_result) && ( uri_result.Scheme == Uri.UriSchemeHttp || uri_result.Scheme == Uri.UriSchemeHttps);
+            return Uri.TryCreate(URL, UriKind.Absolute, out Uri uri_result) && (uri_result.Scheme == Uri.UriSchemeHttp || uri_result.Scheme == Uri.UriSchemeHttps);
         }
 
         public string GetAPODMainPageURL()
@@ -69,7 +76,7 @@ namespace APOD.Core
         /// Resuelve la URL de la página de una fecha. Las páginas nuevas llevan el título en la URL
         /// (p. ej. image-article/apod-2026-august-3-...), así que hay que consultarla en la API.
         /// </summary>
-        public async Task<string> GetAPODPageURL(HttpClient client, DateTime date, CancellationToken token = default, int timeout = 30000)
+        public async Task<string> GetAPODPageURL(HttpClient client, DateTime date, int timeout = 30000, CancellationToken token = default)
         {
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(token);
             cts.CancelAfter(timeout);
@@ -89,7 +96,7 @@ namespace APOD.Core
             foreach (var post in json.RootElement.EnumerateArray())
             {
                 string link = post.GetProperty("link").GetString();
-                if (post.GetProperty("slug").GetString()?.StartsWith(expectedSlug) == true)
+                if (post.GetProperty("slug").GetString()?.StartsWith(expectedSlug) is true)
                     return link;
                 fallback ??= link;
             }
@@ -150,15 +157,15 @@ namespace APOD.Core
             }
         }
 
-        public async Task<HtmlDocument> GetHTMLDocument(HttpClient client, string url, CancellationToken token = default, int timeout = 30000)
+        public async Task<HtmlDocument> GetHTMLDocument(HttpClient client, string url, int timeout = 30000, CancellationToken token = default)
         {
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(token);
             cts.CancelAfter(timeout);
-            
+
             var response = await client.GetAsync(url, cts.Token);
             response.EnsureSuccessStatusCode();
             var page_contents = await response.Content.ReadAsStringAsync(cts.Token);
-            HtmlDocument page_document = new HtmlDocument();
+            HtmlDocument page_document = new ();
             page_document.LoadHtml(page_contents);
             return page_document;
         }
@@ -170,7 +177,7 @@ namespace APOD.Core
             string path = uri.AbsolutePath;
             if (path.StartsWith(DYNAMIC_IMAGE_PATH))
             {
-                path = ORIGINAL_IMAGE_PATH + path.Substring(DYNAMIC_IMAGE_PATH.Length);
+                path = string.Concat(ORIGINAL_IMAGE_PATH, path.AsSpan(DYNAMIC_IMAGE_PATH.Length));
             }
             return uri.GetLeftPart(UriPartial.Authority) + path;
         }
@@ -218,7 +225,7 @@ namespace APOD.Core
                 throw new NodeNotFoundException("Fallo al extraer el título de la imagen de hoy en el sitio web.");
             }
         }
-        
+
         public HtmlNode GetImageDescriptionFromAPOD(HtmlDocument page_document)
         {
             var node = page_document.DocumentNode.SelectSingleNode(IMAGE_DESCRIPTION_SEARCH_XPATH);
@@ -247,7 +254,7 @@ namespace APOD.Core
             string[] tokens = image_url.Split("/");
             if (tokens.Length > 0)
             {
-                return tokens[tokens.Length - 1];
+                return tokens[^1];
             }
             else
             {
@@ -255,7 +262,7 @@ namespace APOD.Core
             }
         }
 
-        public async Task<byte[]> DownloadImageToBytes(HttpClient client, string url, CancellationToken token = default, int timeout = 30000)
+        public async Task<byte[]> DownloadImageToBytes(HttpClient client, string url, int timeout = 30000, CancellationToken token = default)
         {
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(token);
             cts.CancelAfter(timeout);
@@ -266,40 +273,38 @@ namespace APOD.Core
             return await response.Content.ReadAsByteArrayAsync(cts.Token);
         }
 
-        public async Task<byte[]> DownloadImageParallelToBytes(HttpClient client, string url, CancellationToken token = default, int timeout = 30000, int maxConnections = DEFAULT_PARALLEL_CONNECTIONS)
+        public async Task<byte[]> DownloadImageParallelToBytes(HttpClient client, string url, int timeout = 30000, int maxConnections = DEFAULT_PARALLEL_CONNECTIONS, CancellationToken token = default)
         {
             long total;
             using (var probeCts = CancellationTokenSource.CreateLinkedTokenSource(token))
             {
                 probeCts.CancelAfter(timeout);
 
-                using (var probeRequest = new HttpRequestMessage(HttpMethod.Get, url))
+                using var probeRequest = new HttpRequestMessage(HttpMethod.Get, url);
+                probeRequest.Headers.Range = new RangeHeaderValue(0, 0);
+                using var probeResponse = await client.SendAsync(probeRequest, HttpCompletionOption.ResponseHeadersRead, probeCts.Token);
+                probeResponse.EnsureSuccessStatusCode();
+
+                // Sin soporte de rangos (p. ej. imágenes redimensionadas) la respuesta ya trae la imagen completa.
+                if (probeResponse.StatusCode != HttpStatusCode.PartialContent)
                 {
-                    probeRequest.Headers.Range = new RangeHeaderValue(0, 0);
-                    using var probeResponse = await client.SendAsync(probeRequest, HttpCompletionOption.ResponseHeadersRead, probeCts.Token);
-                    probeResponse.EnsureSuccessStatusCode();
-
-                    // Sin soporte de rangos (p. ej. imágenes redimensionadas) la respuesta ya trae la imagen completa.
-                    if (probeResponse.StatusCode != HttpStatusCode.PartialContent)
-                    {
-                        _log.Info($"El servidor no soporta descargas por rango (HTTP {(int)probeResponse.StatusCode}); descarga secuencial.");
-                        return await probeResponse.Content.ReadAsByteArrayAsync(probeCts.Token);
-                    }
-
-                    var contentRange = probeResponse.Content.Headers.ContentRange;
-                    if (contentRange == null || !contentRange.Length.HasValue)
-                    {
-                        throw new HttpRequestException("El servidor no indicó el tamaño total de la imagen.");
-                    }
-
-                    total = contentRange.Length.Value;
+                    _log.Info($"El servidor no soporta descargas por rango (HTTP {(int)probeResponse.StatusCode}); descarga secuencial.");
+                    return await probeResponse.Content.ReadAsByteArrayAsync(probeCts.Token);
                 }
+
+                var contentRange = probeResponse.Content.Headers.ContentRange;
+                if (contentRange?.Length.HasValue is not true)
+                {
+                    throw new HttpRequestException("El servidor no indicó el tamaño total de la imagen.");
+                }
+
+                total = contentRange.Length.Value;
             }
 
             string tempPath = Path.GetTempFileName();
             try
             {
-                using (var setupStream = new FileStream(tempPath, FileMode.Open, FileAccess.Write, FileShare.ReadWrite))
+                await using (var setupStream = new FileStream(tempPath, FileMode.Open, FileAccess.Write, FileShare.ReadWrite))
                 {
                     setupStream.SetLength(total);
                 }
@@ -311,7 +316,7 @@ namespace APOD.Core
                 {
                     long chunkStart = start;
                     long chunkEnd = Math.Min(start + chunkSize - 1, total - 1);
-                    tasks.Add(DownloadRangeToFileAsync(client, url, chunkStart, chunkEnd, tempPath, cancellation.Token, timeout));
+                    tasks.Add(DownloadRangeToFileAsync(client, url, chunkStart, chunkEnd, tempPath, timeout, cancellation.Token));
                 }
 
                 try
@@ -341,7 +346,7 @@ namespace APOD.Core
             }
         }
 
-        private async Task DownloadRangeToFileAsync(HttpClient client, string url, long start, long end, string tempPath, CancellationToken token, int timeout)
+        private async Task DownloadRangeToFileAsync(HttpClient client, string url, long start, long end, string tempPath, int timeout, CancellationToken token)
         {
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(token);
             cts.CancelAfter(timeout);
@@ -356,59 +361,16 @@ namespace APOD.Core
                 throw new HttpRequestException($"El servidor no devolvió un rango (206) para el rango {start}-{end}.");
             }
 
-            using var contentStream = await response.Content.ReadAsStreamAsync(cts.Token);
-            using var fileStream = new FileStream(tempPath, FileMode.Open, FileAccess.Write, FileShare.ReadWrite, 81920, useAsync: true);
+            await using var contentStream = await response.Content.ReadAsStreamAsync(cts.Token);
+            await using var fileStream = new FileStream(tempPath, FileMode.Open, FileAccess.Write, FileShare.ReadWrite, 81920, useAsync: true);
             fileStream.Seek(start, SeekOrigin.Begin);
             await contentStream.CopyToAsync(fileStream, cts.Token);
         }
 
-        public void SetWallpaper(string image_path)
+        public async Task SetWallpaperAsync(string image_path)
         {
             string path = new Uri(image_path).LocalPath;
-
-            if (Util.IsWindows())
-            {
-                SystemParametersInfo(0x0014, 0, path, 0x0001);
-            }
-            else if (Util.IsOsx())
-            {
-                // Forma de System Events (la de Finder quedó obsoleta): compatible con macOS moderno
-                // y sin depender de Xcode Command Line Tools. Requiere permiso de Automatización (una vez).
-                var psi = new ProcessStartInfo("osascript")
-                {
-                    UseShellExecute = false
-                };
-                psi.ArgumentList.Add("-e");
-                psi.ArgumentList.Add($"tell application \"System Events\" to tell every desktop to set picture to \"{path}\"");
-                var process = Process.Start(psi);
-                process.WaitForExit();
-                if (process.ExitCode != 0)
-                {
-                    throw new InvalidOperationException(
-                        "No se pudo establecer el fondo de pantalla. Verifica el permiso de Automatización (Ajustes del Sistema > Privacidad y seguridad > Automatización).");
-                }
-            }
-            else if (Util.IsLinux())
-            {
-                string desktop = Environment.GetEnvironmentVariable("XDG_CURRENT_DESKTOP")?.ToLower() ?? "";
-
-                if (desktop.Contains("gnome"))
-                    Process.Start("gsettings", $"set org.gnome.desktop.background picture-uri file://{path}");
-                else if (desktop.Contains("kde"))
-                    Process.Start("plasma-apply-wallpaperimage", path);
-                else if (desktop.Contains("xfce"))
-                    Process.Start("xfconf-query", $"-c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/last-image -s {path}");
-                else if (desktop.Contains("sway"))
-                    Process.Start("swaymsg", $"output * bg {path} fill");
-                else
-                    throw new PlatformNotSupportedException($"Escritorio '{desktop}' no soportado.");
-            }
-            else
-            {
-                throw new PlatformNotSupportedException("Sistema operativo no soportado para cambiar el fondo de pantalla.");
-            }
+            await _osService.SetWallpaperAsync(path);
         }
-        
-        #endregion
     }
 }

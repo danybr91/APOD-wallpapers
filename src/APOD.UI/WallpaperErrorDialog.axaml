@@ -1,0 +1,51 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="APOD.UI.WallpaperErrorDialog"
+        Title="No se pudo establecer el fondo"
+        Width="520" SizeToContent="Height"
+        CanResize="False"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        RequestedThemeVariant="Dark">
+
+    <Window.Styles>
+        <Style Selector="Button">
+            <Setter Property="Background" Value="#0078D4"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="#0067B8"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="20,10"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="MinHeight" Value="36"/>
+        </Style>
+        <Style Selector="Button:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#106EBE"/>
+        </Style>
+        <Style Selector="Button:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="#005A9E"/>
+        </Style>
+        <Style Selector="Button.secondary">
+            <Setter Property="Background" Value="#3A3A3A"/>
+            <Setter Property="BorderBrush" Value="#4A4A4A"/>
+        </Style>
+        <Style Selector="Button.secondary:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#474747"/>
+        </Style>
+    </Window.Styles>
+
+    <StackPanel Margin="24" Spacing="16">
+        <TextBlock Text="No se pudo establecer el fondo de pantalla automáticamente."
+                   FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap"/>
+        <TextBlock x:Name="ReasonText" Foreground="#AAAAAA" FontSize="12" TextWrapping="Wrap"/>
+        <TextBlock Text="La imagen está guardada en:" TextWrapping="Wrap"/>
+        <SelectableTextBlock x:Name="PathText" Foreground="#4FC3F7" TextWrapping="Wrap"/>
+        <TextBlock Text="Puedes abrir la carpeta y establecerla como fondo desde tu escritorio (normalmente con clic derecho sobre la imagen)."
+                   TextWrapping="Wrap"/>
+        <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+            <Button Content="Abrir carpeta" Click="OpenFolderButton_Click"/>
+            <Button Content="Cerrar" Classes="secondary" Click="CloseButton_Click"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

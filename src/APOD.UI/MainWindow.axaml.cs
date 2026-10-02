@@ -210,12 +210,12 @@ namespace APOD.UI
             try
             {
                 using var client = new HttpClient();
-                string doc_url = await _service.GetAPODPageURL(client, date, token);
+                string doc_url = await _service.GetAPODPageURL(client, date, token: token);
                 token.ThrowIfCancellationRequested();
-                if (!_service.IsValidURL(doc_url)) return;
+                if (!ApodService.IsValidURL(doc_url)) return;
                 MoreInfoLink.NavigateUri = new Uri(doc_url);
 
-                HtmlDocument page = await _service.GetHTMLDocument(client, doc_url, token);
+                HtmlDocument page = await _service.GetHTMLDocument(client, doc_url, token: token);
                 token.ThrowIfCancellationRequested();
 
                 SetDescriptionFromHtml(TitleText, _service.GetImageTitleFromAPOD(page));
@@ -255,7 +255,7 @@ namespace APOD.UI
         {
             string image_url = _service.GetImageURLFromAPOD(page);
             string preview_url = _service.GetImagePreviewURLFromAPOD(page);
-            if (!_service.IsValidURL(image_url) || !_service.IsValidURL(preview_url)) return;
+            if (!ApodService.IsValidURL(image_url) || !ApodService.IsValidURL(preview_url)) return;
 
             image = await DownloadBitmap(client, preview_url, token);
             token.ThrowIfCancellationRequested();
@@ -271,7 +271,7 @@ namespace APOD.UI
 
         private async Task<Bitmap> DownloadBitmap(HttpClient client, string url, CancellationToken token)
         {
-            var bytes = await _service.DownloadImageParallelToBytes(client, url, token);
+            var bytes = await _service.DownloadImageParallelToBytes(client, url, token: token);
             using var memoryStream = new MemoryStream(bytes, writable: false);
             return new Bitmap(memoryStream);
         }
@@ -365,8 +365,22 @@ namespace APOD.UI
                     return;
                 }
             }
-            _service.SetWallpaper(file_name);
-            WriteInfo($"Fondo de pantalla establecido");
+            UpdateControls(true);
+            WriteInfo("Estableciendo el fondo de pantalla...");
+            try
+            {
+                await _service.SetWallpaperAsync(file_name);
+                WriteInfo("Fondo de pantalla establecido");
+            }
+            catch (Exception ex)
+            {
+                WriteError(ex.Message);
+                await new WallpaperErrorDialog(file_name, ex.Message).ShowDialog(this);
+            }
+            finally
+            {
+                UpdateControls(false);
+            }
         }
     }
 }

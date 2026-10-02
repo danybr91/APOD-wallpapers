@@ -41,7 +41,7 @@ namespace APOD.Tests
             _output.WriteLine($"Preview:  {previewUrl}");
 
             Assert.Equal(ImageUrl, fullResUrl);
-            Assert.True(_service.IsValidURL(previewUrl));
+            Assert.True(ApodService.IsValidURL(previewUrl));
             Assert.NotEqual(fullResUrl, previewUrl);
             Assert.True(_service.HasImage(page));
             Assert.Equal("Vaporizing Meteor Photobombs the Lacerta Nebula", _service.GetImageTitleFromAPOD(page).InnerText.Trim());
@@ -80,7 +80,7 @@ namespace APOD.Tests
             _output.WriteLine($"Página:   {pageUrl}");
             _output.WriteLine($"Full-res: {fullResUrl}");
             Assert.Contains("apod-1995-june-16-", pageUrl);
-            Assert.True(_service.IsValidURL(fullResUrl));
+            Assert.True(ApodService.IsValidURL(fullResUrl));
         }
 
         [Fact]

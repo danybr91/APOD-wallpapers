@@ -134,7 +134,7 @@ namespace APOD.Console
                 throw new Exception($"La APOD de esa fecha no es una imagen (puede ser un vídeo). Puedes verla en '{doc_url}'");
             }
             string image_url = service.GetImageURLFromAPOD(page);
-            if (!service.IsValidURL(image_url))
+            if (!ApodService.IsValidURL(image_url))
             {
                 throw new Exception($"La URL de la imagen '{image_url}' no es válida");
             }
@@ -164,7 +164,7 @@ namespace APOD.Console
             if (set_wallpaper)
             {
                 logger.Info($"Cambiando el wallpaper por '{file_path}'");
-                service.SetWallpaper(file_path);
+                await service.SetWallpaperAsync(file_path);
             }
         }
     }

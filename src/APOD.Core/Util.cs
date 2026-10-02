@@ -1,3 +1,4 @@
+using System;
 using System.Reflection;
 using System.Runtime.InteropServices;
 
@@ -15,5 +16,13 @@ namespace APOD.Core
         internal static bool IsLinux() => RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
 
         internal static bool IsOsx() => RuntimeInformation.IsOSPlatform(OSPlatform.OSX);
+
+        internal static IOsService GetOsService()
+        {
+            if (IsWindows()) return new WindowsService();
+            if (IsOsx()) return new MacService();
+            if (IsLinux()) return new LinuxService();
+            throw new PlatformNotSupportedException("Sistema operativo no soportado.");
+        }
     }
 }

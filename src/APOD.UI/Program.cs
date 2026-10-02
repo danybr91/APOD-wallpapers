@@ -46,10 +46,8 @@ namespace APOD.UI
                     return 0;
                 }
 
-                using (var client = new HttpClient())
-                {
-                    DownloadAndSaveAsync(client, date, to_file, set_wallpaper).GetAwaiter().GetResult();
-                }
+                using var client = new HttpClient();
+                DownloadAndSaveAsync(client, date, to_file, set_wallpaper).GetAwaiter().GetResult();
             }
             catch (ArgumentException e)
             {
@@ -81,9 +79,9 @@ namespace APOD.UI
                         break;
                     case "--to-file":
                         // Get next
-                        if (i + 1 < args.Length && !args[i + 1].StartsWith("-"))
+                        if (i + 1 < args.Length && !args[i + 1].StartsWith('-'))
                         {
-                            i = i + 1;
+                            i++;
                             string path = args[i];
                             if (_service.IsValidFilePath(path))
                             {
@@ -97,9 +95,9 @@ namespace APOD.UI
                         break;
                     case "--date":
                         // Get next
-                        if (i + 1 < args.Length && !args[i + 1].StartsWith("-"))
+                        if (i + 1 < args.Length && !args[i + 1].StartsWith('-'))
                         {
-                            i = i + 1;
+                            i++;
                             DateTime? parsed = _service.ParseAPODDate(args[i]);
                             if (parsed.HasValue && _service.IsValidAPODDate(parsed.Value))
                             {
@@ -154,7 +152,7 @@ namespace APOD.UI
                 throw new Exception($"La APOD de esa fecha no es una imagen (puede ser un vídeo). Puedes verla en '{doc_url}'");
             }
             string image_url = _service.GetImageURLFromAPOD(page);
-            if (!_service.IsValidURL(image_url))
+            if (!ApodService.IsValidURL(image_url))
             {
                 throw new Exception($"La URL de la imagen '{image_url}' no es válida");
             }
@@ -184,7 +182,7 @@ namespace APOD.UI
             if (set_wallpaper)
             {
                 _logger.Info($"Cambiando el wallpaper por '{file_path}'");
-                _service.SetWallpaper(file_path);
+                await _service.SetWallpaperAsync(file_path);
             }
         }
     }

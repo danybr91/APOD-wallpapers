@@ -8,7 +8,8 @@ namespace APOD.UI
     {
         #region P/Invoke declarations
 
-        [DllImport("User32", CharSet = CharSet.Auto)]
+        // Se fija la variante Unicode para que las cadenas se serialicen siempre como UTF-16.
+        [DllImport("User32", EntryPoint = "MessageBoxW", CharSet = CharSet.Unicode, ExactSpelling = true)]
         private static extern int MessageBox(IntPtr hWnd, string text, string caption, uint type);
 
         #endregion
@@ -50,7 +51,7 @@ namespace APOD.UI
             // El MsgBox se usa únicamente para la ayuda.
             if (IsWindows)
             {
-                MessageBox(IntPtr.Zero, message, "APOD Wallpapers", MB_OK | MB_ICONINFORMATION);
+                _ = MessageBox(IntPtr.Zero, message, "APOD Wallpapers", MB_OK | MB_ICONINFORMATION);
             }
             else
             {
