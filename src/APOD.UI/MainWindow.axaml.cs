@@ -8,6 +8,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Documents;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
@@ -26,10 +27,13 @@ namespace APOD.UI
         private DateTime _currentDate = DateTime.Today;
         private bool _isSettingDate;
         private CancellationTokenSource _loadCts;
+        // Null cuando el sistema no admite NativeWebView (ver WebViewSupport).
+        private NativeWebView VideoWebView;
         
         public MainWindow()
         {
             InitializeComponent();
+            CreateVideoWebView();
             // Enruta los logs de ApodService a la barra de estado de la ventana.
             Program.Logger.StatusWriter = SetStatus;
             // Descarga la imagen inicial al abrir la ventana
@@ -41,10 +45,25 @@ namespace APOD.UI
             // Detiene el WebView antes de cerrar la ventana para dar tiempo a
             // WebView2 a liberar sus recursos sin provocar el error de Chromium
             // "Failed to unregister class Chrome_WidgetWin_0. Error = 1412" al salir.
-            VideoWebView.Stop();
-            VideoWebView.Source = new Uri("about:blank");
-            VideoWebView.IsVisible = false;
+            if (VideoWebView != null)
+            {
+                VideoWebView.Stop();
+                VideoWebView.Source = new Uri("about:blank");
+            }
+            VideoHost.IsVisible = false;
             base.OnClosing(e);
+        }
+
+        private void CreateVideoWebView()
+        {
+            if (!WebViewSupport.IsSupported) return;
+
+            VideoWebView = new NativeWebView
+            {
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                VerticalAlignment = VerticalAlignment.Stretch
+            };
+            VideoHost.Children.Add(VideoWebView);
         }
         
         private void InitializeComponent()
@@ -62,7 +81,8 @@ namespace APOD.UI
             PrevDayButton = this.FindControl<Button>("PrevDayButton");
             NextDayButton = this.FindControl<Button>("NextDayButton");
             MoreInfoLink = this.FindControl<HyperlinkButton>("MoreInfoLink");
-            VideoWebView = this.FindControl<NativeWebView>("VideoWebView");
+            VideoHost = this.FindControl<Panel>("VideoHost");
+            VideoUnsupportedNotice = this.FindControl<Border>("VideoUnsupportedNotice");
 
             DatePicker.MinYear = new DateTimeOffset(ApodService.APOD_MIN_DATE);
             DatePicker.MaxYear = new DateTimeOffset(DateTime.Today);
@@ -196,7 +216,8 @@ namespace APOD.UI
             UpdateControls(true);
             PreviewImage.Source = null;
             PreviewImage.IsVisible = true;
-            VideoWebView.IsVisible = false;
+            VideoHost.IsVisible = false;
+            VideoUnsupportedNotice.IsVisible = false;
             TitleText.Text = "";
             InfoText.Text = "";
             WriteInfo($"Descargando contenido del {date:dd/MM/yyyy}...");
@@ -256,6 +277,13 @@ namespace APOD.UI
                 PreviewImage.IsVisible = false;
             }
 
+            if (VideoWebView == null)
+            {
+                VideoUnsupportedNotice.IsVisible = true;
+                WriteInfo("La reproducción de vídeo no está disponible en este sistema.");
+                return;
+            }
+
             string html =
                 "<!DOCTYPE html><html><head><meta charset='utf-8'>" +
                 "<style>html,body{margin:0;padding:0;width:100%;height:100%;background:#000;}" +
@@ -263,7 +291,7 @@ namespace APOD.UI
                 $"<video src='{video_url}' controls autoplay></video></body></html>";
 
             VideoWebView.NavigateToString(html);
-            VideoWebView.IsVisible = true;
+            VideoHost.IsVisible = true;
 
             WriteInfo("Reproduciendo vídeo de la fecha seleccionada.");
         }

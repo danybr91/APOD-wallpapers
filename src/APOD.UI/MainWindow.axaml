@@ -1,6 +1,5 @@
 ﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:web="using:Avalonia.Controls"
         x:Class="APOD.UI.MainWindow"
         Title="APOD Wallpapers"
         MinWidth="800" MinHeight="600"
@@ -67,11 +66,24 @@
             <Image Name="PreviewImage"
                    Stretch="Uniform"/>
 
-            <!-- Reproductor de video -->
-            <web:NativeWebView x:Name="VideoWebView"
-                               IsVisible="False"
-                               HorizontalAlignment="Stretch"
-                               VerticalAlignment="Stretch"/>
+            <!-- Reproductor de video: el NativeWebView se crea desde código solo si el sistema lo admite -->
+            <Panel x:Name="VideoHost"
+                   IsVisible="False"/>
+
+            <!-- Aviso cuando el sistema no puede reproducir vídeo integrado -->
+            <Border x:Name="VideoUnsupportedNotice"
+                    IsVisible="False"
+                    Background="#CC1E1E1E"
+                    CornerRadius="6"
+                    Padding="24,16"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center">
+                <TextBlock Text="La reproducción de vídeo no está disponible en este sistema."
+                           Foreground="#DDDDDD"
+                           FontSize="14"
+                           TextWrapping="Wrap"
+                           TextAlignment="Center"/>
+            </Border>
 
             <!-- Overlay de carga -->
             <Border Name="LoadingOverlay"

@@ -1,8 +1,7 @@
 {
   "profiles": {
     "APOD wallpapers": {
-      "commandName": "Project",
-      "commandLineArgs": ""
+      "commandName": "Project"
     }
   }
 }

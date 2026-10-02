@@ -353,3 +353,6 @@ MigrationBackup/
 .ionide/
 
 .idea/
+# VS Code C# Dev Tools - Auto-generated runners
+.vscodecsdt/Runners/
+.vscode/settings.json

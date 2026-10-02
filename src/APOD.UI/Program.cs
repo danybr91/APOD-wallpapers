@@ -22,6 +22,12 @@ namespace APOD.UI
         [STAThread]
         static int Main(string[] args)
         {
+            // Proceso hijo lanzado por WebViewSupport para comprobar si WebKit funciona.
+            if (args.Length == 1 && args[0] == WebViewSupport.ProbeArgument)
+            {
+                return WebViewSupport.RunProbe();
+            }
+
             if (args.Length == 0)
             {
                 return LaunchGui(args);
