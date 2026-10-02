@@ -5,7 +5,7 @@
     <TargetFramework>net9.0</TargetFramework>
     <RootNamespace>APOD.Console</RootNamespace>
     <AssemblyName>apodc</AssemblyName>
-    <Version>2.2.0</Version>
+    <Version>3.0.0</Version>
     <Description>Versión de consola de APOD Wallpapers.</Description>
     <DebugType>none</DebugType>
     <DebugSymbols>false</DebugSymbols>

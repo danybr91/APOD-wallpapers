@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <RootNamespace>APOD.Core</RootNamespace>
-    <Version>2.2.0</Version>
+    <Version>3.0.0</Version>
     <Description>Lógica compartida de APOD Wallpapers (descarga, parseo, fondo de pantalla).</Description>
     <DebugType>none</DebugType>
     <DebugSymbols>false</DebugSymbols>

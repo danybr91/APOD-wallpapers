@@ -6,7 +6,7 @@
     <TargetFramework>net9.0</TargetFramework>
     <RootNamespace>APOD.UI</RootNamespace>
     <AssemblyName>apod</AssemblyName>
-    <Version>2.2.0</Version>
+    <Version>3.0.0</Version>
     <Description>Versión gráfica (Avalonia) de APOD Wallpapers.</Description>
     <ApplicationIcon>favicon.ico</ApplicationIcon>
     <PackageIcon>favicon.ico</PackageIcon>
