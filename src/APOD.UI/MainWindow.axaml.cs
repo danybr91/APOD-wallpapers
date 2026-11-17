@@ -28,7 +28,7 @@ namespace APOD.UI
         private bool _isSettingDate;
         private CancellationTokenSource _loadCts;
         private readonly ApodService _service;
-        
+
         public MainWindow(ApodService service, UiLogger logger)
         {
             _service = service;
@@ -50,6 +50,7 @@ namespace APOD.UI
             InfoText = this.FindControl<TextBlock>("InfoText");
             DownloadButton = this.FindControl<Button>("DownloadButton");
             SetWallpaperButton = this.FindControl<Button>("SetWallpaperButton");
+            SettingsButton = this.FindControl<Button>("SettingsButton");
             DatePicker = this.FindControl<DatePicker>("DatePicker");
             PrevDayButton = this.FindControl<Button>("PrevDayButton");
             NextDayButton = this.FindControl<Button>("NextDayButton");
@@ -311,10 +312,56 @@ namespace APOD.UI
         {
             if (image == null) return false;
 
+            // Se recargan en cada descarga por si el JSON se ha editado fuera de la aplicación.
+            AppSettings settings = AppSettings.Load();
+            string settings_error = settings.Validate();
+            if (settings_error != null)
+            {
+                WriteError(settings_error + " Revisa los ajustes.");
+                return false;
+            }
+            string download_dir = settings.DownloadDir?.Trim();
+            string path = string.IsNullOrWhiteSpace(download_dir)
+                ? await AskSavePathAsync()
+                : Path.Combine(download_dir, Path.GetFileName(file_name));
+            if (path == null) return false;
+
+            if (string.IsNullOrEmpty(fullResUrl))
+            {
+                WriteError("No hay imagen de resolución completa para guardar.");
+                return false;
+            }
+
+            file_name = path;
+            UpdateControls(true);
+            try
+            {
+                WriteInfo("Descargando la imagen...");
+                using var client = new HttpClient();
+                byte[] bytes = await _service.DownloadImageParallelToBytes(client, fullResUrl);
+                Directory.CreateDirectory(Path.GetDirectoryName(file_name));
+                File.WriteAllBytes(file_name, bytes);
+                WriteInfo($"Imagen guardada en {file_name}");
+            }
+            catch (Exception e)
+            {
+                WriteError("Error al guardar la imagen: " + e.Message);
+            }
+            finally
+            {
+                UpdateControls(false);
+            }
+
+            return true;
+        }
+
+        // Pregunta dónde guardar la imagen. Devuelve null si se cancela o la ruta no es local.
+        private async Task<string> AskSavePathAsync()
+        {
             var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
             {
                 Title = "Save Image",
-                SuggestedFileName = file_name,
+                SuggestedFileName = Path.GetFileName(file_name),
                 SuggestedStartLocation = await StorageProvider.TryGetFolderFromPathAsync(ApodService.DefaultDownloadDir),
                 FileTypeChoices = new[]
                 {
@@ -322,43 +369,19 @@ namespace APOD.UI
                 }
             });
 
-            if (file != null)
+            if (file == null) return null;
+
+            var path = file.TryGetLocalPath();
+            if (path == null)
             {
-                var path = file.TryGetLocalPath();
-                if (path == null)
-                {
-                    WriteError("No se pudo obtener la ruta del archivo.");
-                    return false;
-                }
-
-                if (string.IsNullOrEmpty(fullResUrl))
-                {
-                    WriteError("No hay imagen de resolución completa para guardar.");
-                    return false;
-                }
-
-                file_name = path;
-                UpdateControls(true);
-                try
-                {
-                    WriteInfo("Descargando la imagen...");
-                    using var client = new HttpClient();
-                    byte[] bytes = await _service.DownloadImageParallelToBytes(client, fullResUrl);
-                    File.WriteAllBytes(file_name, bytes);
-                    WriteInfo($"Imagen guardada en {file_name}");
-                }
-                catch (Exception e)
-                {
-                    WriteError("Error al guardar la imagen: " + e.Message);
-                }
-                finally
-                {
-                    UpdateControls(false);
-                }
-
-                return true;
+                WriteError("No se pudo obtener la ruta del archivo.");
             }
-            return false;
+            return path;
+        }
+
+        private async void SettingsButton_Click(object sender, RoutedEventArgs e)
+        {
+            await new SettingsDialog(AppSettings.Load()).ShowDialog<bool>(this);
         }
 
         private async void DownloadButton_Click(object sender, RoutedEventArgs e)

@@ -1,0 +1,92 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="APOD.UI.SettingsDialog"
+        Title="Ajustes"
+        Width="560" SizeToContent="Height"
+        CanResize="False"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        RequestedThemeVariant="Dark">
+
+    <Window.Styles>
+        <Style Selector="Button">
+            <Setter Property="Background" Value="#0078D4"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="#0067B8"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="20,10"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="MinHeight" Value="36"/>
+        </Style>
+        <Style Selector="Button:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#106EBE"/>
+        </Style>
+        <Style Selector="Button:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="#005A9E"/>
+        </Style>
+        <Style Selector="Button.secondary">
+            <Setter Property="Background" Value="#3A3A3A"/>
+            <Setter Property="BorderBrush" Value="#4A4A4A"/>
+        </Style>
+        <Style Selector="Button.secondary:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#474747"/>
+        </Style>
+        <Style Selector="Button.success">
+            <Setter Property="Background" Value="#107C10"/>
+            <Setter Property="BorderBrush" Value="#0E6B0E"/>
+        </Style>
+        <Style Selector="Button.success:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#138A13"/>
+        </Style>
+        <Style Selector="Button.success:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="#0B5A0B"/>
+        </Style>
+    </Window.Styles>
+
+    <StackPanel Margin="24" Spacing="16">
+        <TextBlock Text="Ajustes" FontSize="15" FontWeight="SemiBold"/>
+
+        <StackPanel Spacing="8">
+            <TextBlock Text="Carpeta de descarga"/>
+            <!-- Selector, Examinar y Vaciar unidos: solo llevan esquinas redondeadas los extremos -->
+            <Grid ColumnDefinitions="*, Auto, Auto">
+                <TextBox x:Name="DownloadDirBox"
+                         Grid.Column="0"
+                         MinHeight="36"
+                         CornerRadius="4,0,0,4"
+                         VerticalContentAlignment="Center"
+                         PlaceholderText="Preguntar en cada descarga"/>
+                <Button Grid.Column="1"
+                        Content="Examinar..."
+                        CornerRadius="0"
+                        VerticalAlignment="Stretch"
+                        Click="BrowseButton_Click"/>
+                <Button Grid.Column="2"
+                        Content="Vaciar"
+                        Classes="secondary"
+                        CornerRadius="0,4,4,0"
+                        BorderThickness="0,1,1,1"
+                        VerticalAlignment="Stretch"
+                        Click="ClearButton_Click"/>
+            </Grid>
+            <TextBlock Text="Si se deja vacía, se preguntará dónde guardar cada imagen."
+                       Foreground="#AAAAAA" FontSize="12" TextWrapping="Wrap"/>
+        </StackPanel>
+
+        <TextBlock x:Name="ErrorText" Foreground="#FF6B6B" FontSize="12" TextWrapping="Wrap" IsVisible="False"/>
+
+        <Grid ColumnDefinitions="Auto, *">
+            <Button x:Name="OpenJsonButton"
+                    Grid.Column="0"
+                    Content="Editar JSON"
+                    Classes="secondary"
+                    Click="OpenJsonButton_Click"/>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                <Button Content="Guardar" Classes="success" Click="SaveButton_Click"/>
+                <Button Content="Cancelar" Classes="secondary" Click="CancelButton_Click"/>
+            </StackPanel>
+        </Grid>
+    </StackPanel>
+</Window>
